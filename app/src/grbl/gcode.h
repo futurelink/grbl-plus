@@ -236,7 +236,7 @@ typedef struct {
     gc_values_t values;
 } parser_block_t;
 
-#define FAIL(status) return(status);
+#define FAIL(status) return(status)
 
 class GRBLCode {
 public:

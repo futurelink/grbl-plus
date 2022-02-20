@@ -513,7 +513,7 @@ uint8_t GRBLCode::execute_line(char *line)
       // [G10 Errors]: L missing and is not 2 or 20. P word missing. (Negative P value done.)
       // [G10 L2 Errors]: R word NOT SUPPORTED. P value not 0 to nCoordSys(max 9). Axis words missing.
       // [G10 L20 Errors]: P must be 0 to nCoordSys(max 9). Axis words missing.
-      if (!axis_words) { FAIL(STATUS_GCODE_NO_AXIS_WORDS) }; // [No axis words]
+      if (!axis_words) { FAIL(STATUS_GCODE_NO_AXIS_WORDS); } // [No axis words]
       if (bit_isfalse(value_words,((1<<WORD_P)|(1<<WORD_L)))) { FAIL(STATUS_GCODE_VALUE_WORD_MISSING); } // [P/L word missing]
       coord_select = truncf(block.values.p); // Convert p value to int.
       if (coord_select > N_COORDINATE_SYSTEM) { FAIL(STATUS_GCODE_UNSUPPORTED_COORD_SYS); } // [Greater than N sys]
@@ -843,7 +843,7 @@ uint8_t GRBLCode::execute_line(char *line)
   if (gc_parser_flags & GC_PARSER_JOG_MOTION) {
       // Only distance and unit modal commands and G53 absolute override command are allowed.
       // NOTE: Feed rate word and axis word checks have already been performed in STEP 3.
-      if (command_words & ~(bit(MODAL_GROUP_G3) | bit(MODAL_GROUP_G6 | bit(MODAL_GROUP_G0)))) { FAIL(STATUS_INVALID_JOG_COMMAND) };
+      if (command_words & ~(bit(MODAL_GROUP_G3) | bit(MODAL_GROUP_G6 | bit(MODAL_GROUP_G0)))) { FAIL(STATUS_INVALID_JOG_COMMAND); }
       if (!(block.non_modal_command == NON_MODAL_ABSOLUTE_OVERRIDE || block.non_modal_command == NON_MODAL_NO_ACTION)) { FAIL(STATUS_INVALID_JOG_COMMAND); }
 
       // Initialize planner data to current spindle and coolant modal state.
@@ -1004,13 +1004,13 @@ uint8_t GRBLCode::execute_line(char *line)
   // [19. Go to predefined position, Set G10, or Set axis offsets ]:
   switch(block.non_modal_command) {
     case NON_MODAL_SET_COORDINATE_DATA:
-      grbl.settings.write_coord_data(coord_select,block.values.ijk);
-      // Update system coordinate system if currently active.
-      if (state.modal.coord_select == coord_select) {
+        GRBLSettings::write_coord_data(coord_select,block.values.ijk);
+        // Update system coordinate system if currently active.
+        if (state.modal.coord_select == coord_select) {
           memcpy(state.coord_system,block.values.ijk,N_AXIS*sizeof(float));
           grbl.system.flag_wco_change();
-      }
-      break;
+        }
+        break;
     case NON_MODAL_GO_HOME_0: case NON_MODAL_GO_HOME_1:
       // Move to intermediate position before going home. Obeys current coordinate system and offsets
       // and absolute and incremental modes.
@@ -1020,10 +1020,10 @@ uint8_t GRBLCode::execute_line(char *line)
       memcpy(state.position, block.values.ijk, N_AXIS*sizeof(float));
       break;
     case NON_MODAL_SET_HOME_0:
-        grbl.settings.write_coord_data(SETTING_INDEX_G28,state.position);
+        GRBLSettings::write_coord_data(SETTING_INDEX_G28,state.position);
       break;
     case NON_MODAL_SET_HOME_1:
-        grbl.settings.write_coord_data(SETTING_INDEX_G30,state.position);
+        GRBLSettings::write_coord_data(SETTING_INDEX_G30,state.position);
       break;
     case NON_MODAL_SET_COORDINATE_OFFSET:
           memcpy(state.coord_offset,block.values.xyz,sizeof(block.values.xyz));
@@ -1112,7 +1112,7 @@ uint8_t GRBLCode::execute_line(char *line)
 
         // Execute coordinate change and spindle/coolant stop.
         if (grbl.sys.state != STATE_CHECK_MODE) {
-            if (!(grbl.settings.read_coord_data(state.modal.coord_select,state.coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
+            if (!(GRBLSettings::read_coord_data(state.modal.coord_select,state.coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
             grbl.system.flag_wco_change(); // Set to refresh immediately just in case something altered.
             grbl.spindle.set_state(SPINDLE_DISABLE,0.0f);
             grbl.coolant.set_state(COOLANT_DISABLE);
