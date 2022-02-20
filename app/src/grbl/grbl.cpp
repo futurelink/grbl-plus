@@ -62,7 +62,7 @@ void GRBLMain::run() {
         spindle.init();
         coolant_init();
         limits_init();
-        probe_init();
+        probe.init();
         planner.reset(); // Clear block buffer and planner variables
         steppers.reset(); // Clear stepper subsystem variables.
 

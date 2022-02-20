@@ -21,35 +21,31 @@
 #include "grbl.h"
 #include "stm32_helpers.h"
 
-// Inverts the probe pin state depending on user settings and probing cycle mode.
-uint8_t probe_invert_mask;
-
 // Probe pin initialization routine.
-void probe_init() {
+void GRBLProbe::init() {
 	stm32_probe_init();
-    probe_configure_invert_mask(false); // Initialize invert mask.
+    configure_invert_mask(false); // Initialize invert mask.
 }
 
 // Called by probe_init() and the mc_probe() routines. Sets up the probe pin invert mask to
 // appropriately set the pin logic according to setting for normal-high/normal-low operation
 // and the probing cycle modes for toward-workpiece/away-from-workpiece.
-void probe_configure_invert_mask(uint8_t is_probe_away)
-{
+void GRBLProbe::configure_invert_mask(uint8_t is_probe_away) {
   probe_invert_mask = 0; // Initialize as zero.
   if (bit_isfalse(grbl.settings.flags(), BITFLAG_INVERT_PROBE_PIN)) { probe_invert_mask ^= PROBE_MASK; }
   if (is_probe_away) { probe_invert_mask ^= PROBE_MASK; }
 }
 
 // Returns the probe pin state. Triggered = true. Called by gcode parser and probe state monitor.
-uint8_t probe_get_state() {
+uint8_t GRBLProbe::get_state() {
 	return ((PROBE_PORT->IDR & PROBE_MASK) ^ probe_invert_mask) != 0;
 }
 
 // Monitors probe pin state and records the system position when detected. Called by the
 // stepper ISR per ISR tick.
 // NOTE: This function must be extremely efficient as to not bog down the stepper ISR.
-void probe_state_monitor()  {
-    if (probe_get_state()) {
+void GRBLProbe::state_monitor()  {
+    if (get_state()) {
         grbl.sys_probe_state = PROBE_OFF;
         memcpy(grbl.sys_probe_position, grbl.sys_position, sizeof(grbl.sys_position));
         bit_true(grbl.sys_rt_exec_state, EXEC_MOTION_CANCEL);

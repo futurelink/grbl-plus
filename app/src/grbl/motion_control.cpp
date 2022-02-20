@@ -264,14 +264,14 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     uint8_t is_probe_away = bit_istrue(parser_flags, GC_PARSER_PROBE_IS_AWAY);
     uint8_t is_no_error = bit_istrue(parser_flags, GC_PARSER_PROBE_IS_NO_ERROR);
     grbl.sys.probe_succeeded = false; // Re-initialize probe history before beginning cycle.
-    probe_configure_invert_mask(is_probe_away);
+    grbl.probe.configure_invert_mask(is_probe_away);
 
     // After syncing, check if probe is already triggered. If so, halt and issue alarm.
     // NOTE: This probe initialization error applies to all probing cycles.
-    if ( probe_get_state() ) { // Check probe pin state.
+    if ( grbl.probe.get_state() ) { // Check probe pin state.
         system_set_exec_alarm(EXEC_ALARM_PROBE_FAIL_INITIAL);
         protocol_execute_realtime();
-        probe_configure_invert_mask(false); // Re-initialize invert mask before returning.
+        grbl.probe.configure_invert_mask(false); // Re-initialize invert mask before returning.
         return(GC_PROBE_FAIL_INIT); // Nothing else to do but bail.
     }
 
@@ -298,7 +298,7 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
         grbl.sys.probe_succeeded = true; // Indicate to system the probing cycle completed successfully.
     }
     grbl.sys_probe_state = PROBE_OFF; // Ensure probe state monitor is disabled.
-    probe_configure_invert_mask(false); // Re-initialize invert mask.
+    grbl.probe.configure_invert_mask(false); // Re-initialize invert mask.
     protocol_execute_realtime();   // Check and execute run-time commands
 
     // Reset the stepper and planner buffers to remove the remainder of the probe motion.

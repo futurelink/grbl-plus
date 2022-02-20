@@ -63,6 +63,7 @@ public:
     GRBLSteppers steppers;
     GRBLSpindle spindle;
     GRBLMotion motion;
+    GRBLProbe probe;
 
     // Declare system global variable structure
     system_t sys;

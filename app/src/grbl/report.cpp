@@ -552,7 +552,7 @@ void report_realtime_status() {
 #ifdef REPORT_FIELD_PIN_STATE
   uint8_t lim_pin_state = limits_get_state();
   uint8_t ctrl_pin_state = system_control_get_state();
-  uint8_t prb_pin_state = probe_get_state();
+  uint8_t prb_pin_state = grbl.probe.get_state();
   if (lim_pin_state | ctrl_pin_state | prb_pin_state) {
     printPgmString(PSTR("|Pn:"));
     if (prb_pin_state) { serial_write('P'); }

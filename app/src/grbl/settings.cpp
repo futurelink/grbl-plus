@@ -259,7 +259,7 @@ uint8_t GRBLSettings::store_global(uint8_t parameter, float value) {
             case 6: // Reset to ensure change. Immediate re-init may cause problems.
                 if (int_value) { settings.flags |= BITFLAG_INVERT_PROBE_PIN; }
                 else { settings.flags &= ~BITFLAG_INVERT_PROBE_PIN; }
-                probe_configure_invert_mask(false);
+                grbl.probe.configure_invert_mask(false);
                 break;
             case 10: settings.status_report_mask = int_value; break;
             case 11: settings.junction_deviation = value; break;
