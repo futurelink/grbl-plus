@@ -89,7 +89,7 @@ void limits_external_interrupt_handle() {
                 system_set_exec_alarm(EXEC_ALARM_HARD_LIMIT); // Indicate hard limit critical event
             }
             #else
-            mc_reset(); // Initiate system kill.
+            grbl.motion.reset(); // Initiate system kill.
             system_set_exec_alarm(EXEC_ALARM_HARD_LIMIT); // Indicate hard limit critical event
             #endif
         }
@@ -243,7 +243,7 @@ void limits_go_home(uint8_t cycle_mask) {
                 // Homing failure condition: Limit switch not found during approach.
                 if (approach && (rt_exec & EXEC_CYCLE_STOP)) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_APPROACH); }
                 if (grbl.sys_rt_exec_alarm) {
-                    mc_reset(); // Stop motors, if they are running.
+                    grbl.motion.reset(); // Stop motors, if they are running.
                     protocol_execute_realtime();
                     return;
                 } else {
@@ -330,7 +330,7 @@ void limits_soft_check(float *target) {
                 if (grbl.sys.abort) { return; }
             } while (grbl.sys.state != STATE_IDLE);
         }
-        mc_reset(); // Issue system reset and ensure spindle and coolant are shutdown.
+        grbl.motion.reset(); // Issue system reset and ensure spindle and coolant are shutdown.
         system_set_exec_alarm(EXEC_ALARM_SOFT_LIMIT); // Indicate soft limit critical event
         protocol_execute_realtime(); // Execute to enter critical event loop and system abort
         return;

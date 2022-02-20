@@ -311,7 +311,7 @@ void GRBLSteppers::prep_buffer() {
                         }
                     }
                     // Otherwise, at end of block or end of forced-deceleration.
-                    time_var = 2.0f*(mm_remaining-prep.mm_complete)/(prep.current_speed+prep.exit_speed);
+                    time_var = 2.0f * (mm_remaining - prep.mm_complete) / (prep.current_speed + prep.exit_speed);
                     mm_remaining = prep.mm_complete;
                     prep.current_speed = prep.exit_speed;
             }

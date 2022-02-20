@@ -62,6 +62,7 @@ public:
     GRBLPlanner planner;
     GRBLSteppers steppers;
     GRBLSpindle spindle;
+    GRBLMotion motion;
 
     // Declare system global variable structure
     system_t sys;

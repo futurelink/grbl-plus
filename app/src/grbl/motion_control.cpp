@@ -30,7 +30,7 @@
 // segments, must pass through this routine before being passed to the planner. The seperation of
 // mc_line and plan_buffer_line is done primarily to place non-planner-type functions from being
 // in the planner and to let backlash compensation or canned cycle integration simple and direct.
-void mc_line(float *target, plan_line_data_t *pl_data)
+void GRBLMotion::line(float *target, plan_line_data_t *pl_data)
 {
   // If enabled, check for soft limit violations. Placed here all line motions are picked up
   // from everywhere in Grbl.
@@ -85,7 +85,7 @@ void mc_line(float *target, plan_line_data_t *pl_data)
 // The arc is approximated by generating a huge number of tiny, linear segments. The chordal tolerance
 // of each segment is configured in settings.arc_tolerance, which is defined to be the maximum normal
 // distance from segment to the circle when the end points both lie on the circle.
-void mc_arc(float *target, plan_line_data_t *pl_data, float *position, float *offset, float radius,
+void GRBLMotion::arc(float *target, plan_line_data_t *pl_data, float *position, float *offset, float radius,
   uint8_t axis_0, uint8_t axis_1, uint8_t axis_linear, uint8_t is_clockwise_arc)
 {
   float center_axis0 = position[axis_0] + offset[axis_0];
@@ -181,30 +181,29 @@ void mc_arc(float *target, plan_line_data_t *pl_data, float *position, float *of
       position[axis_1] = center_axis1 + r_axis1;
       position[axis_linear] += linear_per_segment;
 
-      mc_line(position, pl_data);
+      line(position, pl_data);
 
       // Bail mid-circle on system abort. Runtime command check already performed by mc_line.
       if (grbl.sys.abort) { return; }
     }
   }
   // Ensure last segment arrives at target location.
-  mc_line(target, pl_data);
+  line(target, pl_data);
 }
 
 
 // Execute dwell in seconds.
-void mc_dwell(float seconds)
+void GRBLMotion::dwell(float seconds)
 {
   if (grbl.sys.state == STATE_CHECK_MODE) { return; }
   protocol_buffer_synchronize();
   delay_sec(seconds, DELAY_MODE_DWELL);
 }
 
-
 // Perform homing cycle to locate and set machine zero. Only '$H' executes this command.
 // NOTE: There should be no motions in the buffer and Grbl must be in an idle state before
 // executing the homing cycle. This prevents incorrect buffered plans after homing.
-void mc_homing_cycle(uint8_t cycle_mask) {
+void GRBLMotion::homing_cycle(uint8_t cycle_mask) {
     // Check and abort homing cycle, if hard limits are already enabled. Helps prevent problems
     // with machines with limits wired on both ends of travel to one limit pin.
     // TODO: Move the pin-specific LIMIT_PIN call to limits.c as a function.
@@ -251,10 +250,9 @@ void mc_homing_cycle(uint8_t cycle_mask) {
 	NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
-
 // Perform tool length probe cycle. Requires probe switch.
 // NOTE: Upon probe failure, the program will be stopped and placed into ALARM state.
-uint8_t mc_probe_cycle(float *target, plan_line_data_t *pl_data, uint8_t parser_flags) {
+uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_t parser_flags) {
     // TODO: Need to update this cycle so it obeys a non-auto cycle start.
     if (grbl.sys.state == STATE_CHECK_MODE) { return(GC_PROBE_CHECK_MODE); }
 
@@ -278,7 +276,7 @@ uint8_t mc_probe_cycle(float *target, plan_line_data_t *pl_data, uint8_t parser_
     }
 
     // Setup and queue probing motion. Auto cycle-start should not start the cycle.
-    mc_line(target, pl_data);
+    line(target, pl_data);
 
     // Activate the probing state monitor in the stepper module.
     grbl.sys_probe_state = PROBE_ACTIVE;
@@ -318,7 +316,7 @@ uint8_t mc_probe_cycle(float *target, plan_line_data_t *pl_data, uint8_t parser_
 }
 
 #ifdef PARKING_ENABLE
-	void mc_parking_motion(float *parking_target, plan_line_data_t *pl_data)
+	void GRBLMotion::mc_parking_motion(float *parking_target, plan_line_data_t *pl_data)
 	{
 		if (grbl.sys.abort) { return; } // Block during abort.
 
@@ -346,7 +344,7 @@ uint8_t mc_probe_cycle(float *target, plan_line_data_t *pl_data, uint8_t parser_
 
 
 #ifdef ENABLE_PARKING_OVERRIDE_CONTROL
-void mc_override_ctrl_update(uint8_t override_state)
+void GRBLMotion::mc_override_ctrl_update(uint8_t override_state)
 {
 	// Finish all queued commands before altering override control state
 	protocol_buffer_synchronize();
@@ -359,7 +357,7 @@ void mc_override_ctrl_update(uint8_t override_state)
 // is in a motion state. If so, kills the steppers and sets the system alarm to flag position
 // lost, since there was an abrupt uncontrolled deceleration. Called at an interrupt level by
 // realtime abort command and hard limits. So, keep to a minimum.
-void mc_reset() {
+void GRBLMotion::reset() {
     // Only this function can set the system reset. Helps prevent multiple kill calls.
     if (bit_isfalse(grbl.sys_rt_exec_state, EXEC_RESET)) {
     system_set_exec_state_flag(EXEC_RESET);

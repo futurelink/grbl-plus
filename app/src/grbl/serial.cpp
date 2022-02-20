@@ -36,7 +36,6 @@ uint8_t serial_tx_buffer[TX_RING_BUFFER];
 uint8_t serial_tx_buffer_head = 0;
 volatile uint8_t serial_tx_buffer_tail = 0;
 
-
 // Returns the number of bytes available in the RX serial buffer.
 uint8_t serial_get_rx_buffer_available()
 {
@@ -44,7 +43,6 @@ uint8_t serial_get_rx_buffer_available()
   if (serial_rx_buffer_head >= rtail) { return(RX_BUFFER_SIZE - (serial_rx_buffer_head-rtail)); }
   return((rtail-serial_rx_buffer_head-1));
 }
-
 
 // Returns the number of bytes used in the RX serial buffer.
 // NOTE: Deprecated. Not used unless classic status reports are enabled in config.h.
@@ -54,7 +52,6 @@ uint8_t serial_get_rx_buffer_count()
   if (serial_rx_buffer_head >= rtail) { return(serial_rx_buffer_head-rtail); }
   return (RX_BUFFER_SIZE - (rtail-serial_rx_buffer_head));
 }
-
 
 // Returns the number of bytes used in the TX serial buffer.
 // NOTE: Not used except for debugging and ensuring no TX bottlenecks.
@@ -129,7 +126,7 @@ void OnUsbDataRx(uint8_t* dataIn, uint8_t length) {
         // Pick off realtime command characters directly from the serial stream. These characters are
         // not passed into the main buffer, but these set system state flag bits for realtime execution.
         switch (data) {
-            case CMD_RESET:         mc_reset(); break; // Call motion control reset routine.
+            case CMD_RESET:         grbl.motion.reset(); break; // Call motion control reset routine.
             case CMD_STATUS_REPORT: system_set_exec_state_flag(EXEC_STATUS_REPORT); break; // Set as true
             case CMD_CYCLE_START:   system_set_exec_state_flag(EXEC_CYCLE_START); break; // Set as true
             case CMD_FEED_HOLD:     system_set_exec_state_flag(EXEC_FEED_HOLD); break; // Set as true
@@ -162,6 +159,7 @@ void OnUsbDataRx(uint8_t* dataIn, uint8_t length) {
                 #ifdef ENABLE_M7
                     case CMD_COOLANT_MIST_OVR_TOGGLE: system_set_exec_accessory_override_flag(EXEC_COOLANT_MIST_OVR_TOGGLE); break;
                 #endif
+                default: break;
                 }
                 // Throw away any unfound extended-ASCII character by not passing it to the serial buffer.
             } else { // Write character to buffer
