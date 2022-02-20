@@ -30,25 +30,32 @@
 extern "C" {
 #endif
 
-// Writes one byte to the TX serial buffer. Called by main program.
-void serial_write(uint8_t data);
+void OnUsbDataRx(uint8_t* dataIn, uint8_t length);
 
-// Fetches the first byte in the serial read buffer. Called by main program.
-uint8_t serial_read();
+class GRBLSerial {
+public:
+    // Writes one byte to the TX serial buffer. Called by main program.
+    void write(uint8_t data);
 
-// Reset and empty data in read buffer. Used by e-stop and reset.
-void serial_reset_read_buffer();
+    // Fetches the first byte in the serial read buffer. Called by main program.
+    uint8_t read();
 
-// Returns the number of bytes available in the RX serial buffer.
-uint8_t serial_get_rx_buffer_available();
+    // Reset and empty data in read buffer. Used by e-stop and reset.
+    void reset_read_buffer();
 
-// Returns the number of bytes used in the RX serial buffer.
-// NOTE: Deprecated. Not used unless classic status reports are enabled in config.h.
-uint8_t serial_get_rx_buffer_count();
+    // Returns the number of bytes available in the RX serial buffer.
+    uint8_t get_rx_buffer_available();
 
-// Returns the number of bytes used in the TX serial buffer.
-// NOTE: Not used except for debugging and ensuring no TX bottlenecks.
-uint8_t serial_get_tx_buffer_count();
+    // Returns the number of bytes used in the RX serial buffer.
+    // NOTE: Deprecated. Not used unless classic status reports are enabled in config.h.
+    uint8_t get_rx_buffer_count();
+
+    // Returns the number of bytes used in the TX serial buffer.
+    // NOTE: Not used except for debugging and ensuring no TX bottlenecks.
+    uint8_t get_tx_buffer_count();
+
+    void serial_tx();
+};
 
 #ifdef __cplusplus
 }

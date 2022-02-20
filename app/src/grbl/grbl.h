@@ -59,6 +59,7 @@ public:
     uint16_t cnt;
 
     GRBLSystem system;
+    GRBLSerial serial;
     GRBLSettings settings;
     GRBLPlanner planner;
     GRBLSteppers steppers;

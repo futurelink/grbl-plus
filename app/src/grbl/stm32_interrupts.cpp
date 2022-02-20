@@ -77,7 +77,7 @@ void SysTick_Handler(void) {
         grbl.cnt--;
     }
 
-    serial_tx();    // Send
+    grbl.serial.serial_tx();    // Send
 }
 
 /**

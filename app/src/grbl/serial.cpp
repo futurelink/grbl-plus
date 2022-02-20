@@ -37,7 +37,7 @@ uint8_t serial_tx_buffer_head = 0;
 volatile uint8_t serial_tx_buffer_tail = 0;
 
 // Returns the number of bytes available in the RX serial buffer.
-uint8_t serial_get_rx_buffer_available()
+uint8_t GRBLSerial::get_rx_buffer_available()
 {
   uint8_t rtail = serial_rx_buffer_tail; // Copy to limit multiple calls to volatile
   if (serial_rx_buffer_head >= rtail) { return(RX_BUFFER_SIZE - (serial_rx_buffer_head-rtail)); }
@@ -46,7 +46,7 @@ uint8_t serial_get_rx_buffer_available()
 
 // Returns the number of bytes used in the RX serial buffer.
 // NOTE: Deprecated. Not used unless classic status reports are enabled in config.h.
-uint8_t serial_get_rx_buffer_count()
+uint8_t GRBLSerial::get_rx_buffer_count()
 {
   uint8_t rtail = serial_rx_buffer_tail; // Copy to limit multiple calls to volatile
   if (serial_rx_buffer_head >= rtail) { return(serial_rx_buffer_head-rtail); }
@@ -55,7 +55,7 @@ uint8_t serial_get_rx_buffer_count()
 
 // Returns the number of bytes used in the TX serial buffer.
 // NOTE: Not used except for debugging and ensuring no TX bottlenecks.
-uint8_t serial_get_tx_buffer_count()
+uint8_t GRBLSerial::get_tx_buffer_count()
 {
   uint8_t ttail = serial_tx_buffer_tail; // Copy to limit multiple calls to volatile
   if (serial_tx_buffer_head >= ttail) { return(serial_tx_buffer_head-ttail); }
@@ -63,7 +63,7 @@ uint8_t serial_get_tx_buffer_count()
 }
 
 // Writes one byte to the TX serial buffer. Called by main program.
-void serial_write(uint8_t data) {
+void GRBLSerial::write(uint8_t data) {
     // Calculate next head
     uint8_t next_head = serial_tx_buffer_head + 1;
     if (next_head == TX_RING_BUFFER) { next_head = 0; }
@@ -80,7 +80,7 @@ void serial_write(uint8_t data) {
 }
 
 // Circular buffer should be sent as linear
-void serial_tx() {
+void GRBLSerial::serial_tx() {
     if (serial_tx_buffer_head > serial_tx_buffer_tail) {
         if (CDC_Transmit_FS(serial_tx_buffer + serial_tx_buffer_tail, serial_tx_buffer_head - serial_tx_buffer_tail) == USBD_OK) {
             serial_tx_buffer_tail = serial_tx_buffer_head;
@@ -98,7 +98,7 @@ void serial_tx() {
 }
 
 // Fetches the first byte in the serial read buffer. Called by main program.
-uint8_t serial_read() {
+uint8_t GRBLSerial::read() {
     uint8_t tail = serial_rx_buffer_tail; // Temporary serial_rx_buffer_tail (to optimize for volatile)
     if (serial_rx_buffer_head == tail) {
         return SERIAL_NO_DATA;
@@ -177,7 +177,6 @@ void OnUsbDataRx(uint8_t* dataIn, uint8_t length) {
     }
 }
 
-void serial_reset_read_buffer()
-{
-  serial_rx_buffer_tail = serial_rx_buffer_head;
+void GRBLSerial::reset_read_buffer() {
+    serial_rx_buffer_tail = serial_rx_buffer_head;
 }

@@ -36,7 +36,7 @@ void GRBLCode::init() {
     memset(&state, 0, sizeof(parser_state_t));
 
     // Load default G54 coordinate system.
-    if (!(grbl.settings.read_coord_data(state.modal.coord_select,state.coord_system))) {
+    if (!(GRBLSettings::read_coord_data(state.modal.coord_select,state.coord_system))) {
         GRBLReport::status_message(STATUS_SETTING_READ_FAIL);
     }
 }
@@ -247,6 +247,7 @@ uint8_t GRBLCode::execute_line(char *line)
               case 3: block.modal.spindle = SPINDLE_ENABLE_CW; break;
               case 4: block.modal.spindle = SPINDLE_ENABLE_CCW; break;
               case 5: block.modal.spindle = SPINDLE_DISABLE; break;
+              default: break;
             }
             break;
           #ifdef ENABLE_M7
@@ -261,6 +262,7 @@ uint8_t GRBLCode::execute_line(char *line)
               #endif
               case 8: block.modal.coolant = COOLANT_FLOOD_ENABLE; break;
               case 9: block.modal.coolant = COOLANT_DISABLE; break;
+              default: break;
             }
             break;
 					#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
@@ -495,7 +497,7 @@ uint8_t GRBLCode::execute_line(char *line)
   if ( bit_istrue(command_words,bit(MODAL_GROUP_G12)) ) { // Check if called in block
     if (block.modal.coord_select > N_COORDINATE_SYSTEM) { FAIL(STATUS_GCODE_UNSUPPORTED_COORD_SYS); } // [Greater than N sys]
     if (state.modal.coord_select != block.modal.coord_select) {
-      if (!(grbl.settings.read_coord_data(block.modal.coord_select,block_coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
+      if (!(GRBLSettings::read_coord_data(block.modal.coord_select,block_coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
     }
   }
 
@@ -529,7 +531,7 @@ uint8_t GRBLCode::execute_line(char *line)
       else { coord_select = block.modal.coord_select; } // Index P0 as the active coordinate system
       
       // NOTE: Store parameter data in IJK values. By rule, they are not in use with this command.
-      if (!grbl.settings.read_coord_data(coord_select,block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); } // [EEPROM read fail]
+      if (!GRBLSettings::read_coord_data(coord_select,block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); } // [EEPROM read fail]
 
       // Pre-calculate the coordinate data changes.
       for (idx=0; idx<N_AXIS; idx++) { // Axes indices are consistent, so loop may be used.
@@ -600,9 +602,9 @@ uint8_t GRBLCode::execute_line(char *line)
           // Retreive G28/30 go-home position data (in machine coordinates) from EEPROM
           // NOTE: Store parameter data in IJK values. By rule, they are not in use with this command.
           if (block.non_modal_command == NON_MODAL_GO_HOME_0) {
-            if (!grbl.settings.read_coord_data(SETTING_INDEX_G28,block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); }
+            if (!GRBLSettings::read_coord_data(SETTING_INDEX_G28,block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); }
           } else { // == NON_MODAL_GO_HOME_1
-            if (!grbl.settings.read_coord_data(SETTING_INDEX_G30,block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); }
+            if (!GRBLSettings::read_coord_data(SETTING_INDEX_G30,block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); }
           }
           if (axis_words) {
             // Move only the axes specified in secondary move.
@@ -941,15 +943,15 @@ uint8_t GRBLCode::execute_line(char *line)
     }
     pl_data->condition |= state.modal.spindle; // Set condition flag for planner use.
 
-  // [8. Coolant control ]:
-  if (state.modal.coolant != block.modal.coolant) {
-    // NOTE: Coolant M-codes are modal. Only one command per line is allowed. But, multiple states
-    // can exist at the same time, while coolant disable clears all states.
-    grbl.coolant.sync(block.modal.coolant);
-    if (block.modal.coolant == COOLANT_DISABLE) { state.modal.coolant = COOLANT_DISABLE; }
-    else { state.modal.coolant |= block.modal.coolant; }
-  }
-  pl_data->condition |= state.modal.coolant; // Set condition flag for planner use.
+      // [8. Coolant control ]:
+      if (state.modal.coolant != block.modal.coolant) {
+        // NOTE: Coolant M-codes are modal. Only one command per line is allowed. But, multiple states
+        // can exist at the same time, while coolant disable clears all states.
+        grbl.coolant.sync(block.modal.coolant);
+        if (block.modal.coolant == COOLANT_DISABLE) { state.modal.coolant = COOLANT_DISABLE; }
+        else { state.modal.coolant |= block.modal.coolant; }
+      }
+      pl_data->condition |= state.modal.coolant; // Set condition flag for planner use.
 
 	// [9. Override control ]: NOT SUPPORTED. Always enabled. Except for a Grbl-only parking control.
 #ifdef ENABLE_PARKING_OVERRIDE_CONTROL

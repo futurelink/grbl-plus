@@ -57,12 +57,13 @@ void GRBLMain::run() {
         sys_rt_exec_accessory_override = 0;
 
         // Reset Grbl primary systems.
-        serial_reset_read_buffer(); // Clear serial read buffer
+        serial.reset_read_buffer(); // Clear serial read buffer
         gcode.init(); // Set g-code parser to default state
         spindle.init();
         coolant.init();
         limits.init();
         probe.init();
+
         planner.reset(); // Clear block buffer and planner variables
         steppers.reset(); // Clear stepper subsystem variables.
 
