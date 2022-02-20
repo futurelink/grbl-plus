@@ -22,21 +22,16 @@
 
 #include "grbl.h"
 
-#ifdef VARIABLE_SPINDLE
-  static float pwm_gradient; // Precalulated value to speed up rpm to PWM conversions.
-#endif
-
-void spindle_init() {
+void GRBLSpindle::init() {
     #ifdef VARIABLE_SPINDLE
     pwm_gradient = SPINDLE_PWM_RANGE / (grbl.settings.rpm_max() - grbl.settings.rpm_min());
     #endif
 
     stm32_spindle_init();
-    spindle_stop();
+    stop();
 }
 
-
-uint8_t spindle_get_state() {
+uint8_t GRBLSpindle::get_state() {
     uint8_t pin = 0;
 
     #ifdef VARIABLE_SPINDLE
@@ -72,7 +67,7 @@ uint8_t spindle_get_state() {
 // Disables the spindle and sets PWM output to zero when PWM variable spindle speed is enabled.
 // Called by various main program and ISR routines. Keep routine small, fast, and efficient.
 // Called by spindle_init(), spindle_set_speed(), spindle_set_state(), and mc_reset().
-void spindle_stop() {
+void GRBLSpindle::stop() {
 #ifdef VARIABLE_SPINDLE
     //TIM_CtrlPWMOutputs(TIM1, DISABLE);
 
@@ -96,7 +91,7 @@ void spindle_stop() {
 #ifdef VARIABLE_SPINDLE
 // Sets spindle speed PWM output and enable pin, if configured. Called by spindle_set_state()
 // and stepper ISR. Keep routine small and efficient.
-void spindle_set_speed(uint16_t pwm_value) {
+void GRBLSpindle::set_speed(uint16_t pwm_value) {
     TIM1->CCR1 = pwm_value;
 
     #ifdef SPINDLE_ENABLE_OFF_WITH_ZERO_SPEED
@@ -168,7 +163,7 @@ void spindle_set_speed(uint16_t pwm_value) {
 	}
 #else
 // Called by spindle_set_state() and step segment generator. Keep routine small and efficient.
-uint16_t spindle_compute_pwm_value(float rpm) { // 328p PWM register is 8-bit.
+uint16_t GRBLSpindle::compute_pwm_value(float rpm) { // 328p PWM register is 8-bit.
     uint16_t pwm_value;
     rpm *= (0.010f * grbl.sys.spindle_speed_ovr); // Scale by spindle speed override value.
 																					 // Calculate PWM register value based on rpm max/min settings and programmed rpm.
@@ -201,9 +196,9 @@ uint16_t spindle_compute_pwm_value(float rpm) { // 328p PWM register is 8-bit.
 // Called by g-code parser spindle_sync(), parking retract and restore, g-code program end,
 // sleep, and spindle stop override.
 #ifdef VARIABLE_SPINDLE
-  void spindle_set_state(uint8_t state, float rpm)
+  void GRBLSpindle::set_state(uint8_t state, float rpm)
 #else
-  void _spindle_set_state(uint8_t state)
+  void GRBLSpindle::_spindle_set_state(uint8_t state)
 #endif
 {
   if (grbl.sys.abort) { return; } // Block during abort.
@@ -212,7 +207,7 @@ uint16_t spindle_compute_pwm_value(float rpm) { // 328p PWM register is 8-bit.
     #ifdef VARIABLE_SPINDLE
       grbl.sys.spindle_speed = 0.0f;
     #endif
-    spindle_stop();
+    stop();
   
   } else {
     #ifndef USE_SPINDLE_DIR_AS_ENABLE_PIN
@@ -223,12 +218,12 @@ uint16_t spindle_compute_pwm_value(float rpm) { // 328p PWM register is 8-bit.
       }
     #endif
   
-    #ifdef VARIABLE_SPINDLE
-      // NOTE: Assumes all calls to this function is when Grbl is not moving or must remain off.
-      if (grbl.settings.flags() & BITFLAG_LASER_MODE) {
-        if (state == SPINDLE_ENABLE_CCW) { rpm = 0.0f; } // TODO: May need to be rpm_min*(100/MAX_SPINDLE_SPEED_OVERRIDE);
-      }
-    spindle_set_speed(spindle_compute_pwm_value(rpm));
+        #ifdef VARIABLE_SPINDLE
+          // NOTE: Assumes all calls to this function is when Grbl is not moving or must remain off.
+          if (grbl.settings.flags() & BITFLAG_LASER_MODE) {
+            if (state == SPINDLE_ENABLE_CCW) { rpm = 0.0f; } // TODO: May need to be rpm_min*(100/MAX_SPINDLE_SPEED_OVERRIDE);
+          }
+        set_speed(compute_pwm_value(rpm));
 		#endif
     #if (defined(USE_SPINDLE_DIR_AS_ENABLE_PIN) && \
         !defined(SPINDLE_ENABLE_OFF_WITH_ZERO_SPEED)) || !defined(VARIABLE_SPINDLE)
@@ -249,10 +244,10 @@ uint16_t spindle_compute_pwm_value(float rpm) { // 328p PWM register is 8-bit.
 // G-code parser entry-point for setting spindle state. Forces a planner buffer sync and bails 
 // if an abort or check-mode is active.
 #ifdef VARIABLE_SPINDLE
-void spindle_sync(uint8_t state, float rpm) {
+void GRBLSpindle::sync(uint8_t state, float rpm) {
     if (grbl.sys.state == STATE_CHECK_MODE) { return; }
     protocol_buffer_synchronize(); // Empty planner buffer to ensure spindle is set when programmed.
-    spindle_set_state(state,rpm);
+    set_state(state,rpm);
 }
 #else
 void _spindle_sync(uint8_t state) {

@@ -552,7 +552,7 @@ static void protocol_exec_rt_suspend()
                 grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_DISABLED;
 
                 #ifndef PARKING_ENABLE
-                spindle_set_state(SPINDLE_DISABLE,0.0f); // De-energize
+                grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
                 coolant_set_state(COOLANT_DISABLE);     // De-energize
 
                 #else
@@ -617,7 +617,7 @@ static void protocol_exec_rt_suspend()
                 if (grbl.sys.state == STATE_SLEEP) {
                     report_feedback_message(MESSAGE_SLEEP_MODE);
                     // Spindle and coolant should already be stopped, but do it again just to be sure.
-                    spindle_set_state(SPINDLE_DISABLE,0.0f); // De-energize
+                    grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
                     coolant_set_state(COOLANT_DISABLE); // De-energize
                     grbl.steppers.go_idle(); // Disable steppers
                     while (!(grbl.sys.abort)) { protocol_exec_rt_system(); } // Do nothing until reset.
@@ -658,7 +658,7 @@ static void protocol_exec_rt_suspend()
                                     // When in laser mode, ignore spindle spin-up delay. Set to turn on laser when cycle starts.
                                     bit_true(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
                                 } else {
-                                    spindle_set_state((restore_condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)), restore_spindle_speed);
+                                    grbl.spindle.set_state((restore_condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)), restore_spindle_speed);
                                     delay_sec(SAFETY_DOOR_SPINDLE_DELAY, DELAY_MODE_SYS_SUSPEND);
                                 }
                             }
@@ -704,7 +704,7 @@ static void protocol_exec_rt_suspend()
                     // Handles beginning of spindle stop
                     if (grbl.sys.spindle_stop_ovr & SPINDLE_STOP_OVR_INITIATE) {
                         if (gc_state.modal.spindle != SPINDLE_DISABLE) {
-                            spindle_set_state(SPINDLE_DISABLE,0.0f); // De-energize
+                            grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
                             grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_ENABLED; // Set stop override state to enabled, if de-energized.
                         } else {
                             grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_DISABLED; // Clear stop override state
@@ -717,7 +717,7 @@ static void protocol_exec_rt_suspend()
                                 // When in laser mode, ignore spindle spin-up delay. Set to turn on laser when cycle starts.
                                 bit_true(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
                             } else {
-                                spindle_set_state((restore_condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)), restore_spindle_speed);
+                                grbl.spindle.set_state((restore_condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)), restore_spindle_speed);
                             }
                         }
                         if (grbl.sys.spindle_stop_ovr & SPINDLE_STOP_OVR_RESTORE_CYCLE) {
@@ -729,7 +729,7 @@ static void protocol_exec_rt_suspend()
                     // Handles spindle state during hold. NOTE: Spindle speed overrides may be altered during hold state.
                     // NOTE: STEP_CONTROL_UPDATE_SPINDLE_PWM is automatically reset upon resume in step generator.
                     if (bit_istrue(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM)) {
-                        spindle_set_state((restore_condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)), restore_spindle_speed);
+                        grbl.spindle.set_state((restore_condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)), restore_spindle_speed);
                         bit_false(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
                     }
                 }

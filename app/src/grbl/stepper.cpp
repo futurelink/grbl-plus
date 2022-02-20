@@ -341,7 +341,7 @@ void GRBLSteppers::prep_buffer() {
                 if (st_prep_block->is_pwm_rate_adjusted) { rpm *= (prep.current_speed * prep.inv_rate); }
                 // If current_speed is zero, then may need to be rpm_min*(100/MAX_SPINDLE_SPEED_OVERRIDE)
                 // but this would be instantaneous only and during a motion. May not matter at all.
-                prep.current_spindle_pwm = spindle_compute_pwm_value(rpm);
+                prep.current_spindle_pwm = grbl.spindle.compute_pwm_value(rpm);
             }
             else {
                 grbl.sys.spindle_speed = 0.0;
@@ -775,7 +775,7 @@ void GRBLSteppers::tim2_handler() {
 
 #ifdef VARIABLE_SPINDLE
             // Set real-time spindle output as segment is loaded, just prior to the first step.
-            spindle_set_speed(st.exec_segment->spindle_pwm);
+            grbl.spindle.set_speed(st.exec_segment->spindle_pwm);
 #endif
 
         } else {
@@ -784,7 +784,7 @@ void GRBLSteppers::tim2_handler() {
 
             // Ensure pwm is set properly upon completion of rate-controlled motion.
 #ifdef VARIABLE_SPINDLE
-            if (st.exec_block->is_pwm_rate_adjusted) { spindle_set_speed(SPINDLE_PWM_OFF_VALUE); }
+            if (st.exec_block->is_pwm_rate_adjusted) { grbl.spindle.set_speed(SPINDLE_PWM_OFF_VALUE); }
 #endif
 
             system_set_exec_state_flag(EXEC_CYCLE_STOP); // Flag main program for cycle end

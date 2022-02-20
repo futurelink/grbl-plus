@@ -917,9 +917,9 @@ uint8_t gc_execute_line(char *line)
 #ifdef VARIABLE_SPINDLE
         if (bit_isfalse(gc_parser_flags, GC_PARSER_LASER_ISMOTION)) {
           if (bit_istrue(gc_parser_flags, GC_PARSER_LASER_DISABLE)) {
-            spindle_sync(gc_state.modal.spindle, 0.0);
+            grbl.spindle.sync(gc_state.modal.spindle, 0.0);
           }
-          else { spindle_sync(gc_state.modal.spindle, gc_block.values.s); }
+          else { grbl.spindle.sync(gc_state.modal.spindle, gc_block.values.s); }
         }
 #else
           spindle_sync(gc_state.modal.spindle, 0.0);
@@ -937,15 +937,15 @@ uint8_t gc_execute_line(char *line)
 
   // [6. Change tool ]: NOT SUPPORTED
 
-  // [7. Spindle control ]:
-  if (gc_state.modal.spindle != gc_block.modal.spindle) {
-    // Update spindle control and apply spindle speed when enabling it in this block.
-    // NOTE: All spindle state changes are synced, even in laser mode. Also, pl_data,
-    // rather than gc_state, is used to manage laser state for non-laser motions.
-    spindle_sync(gc_block.modal.spindle, pl_data->spindle_speed);
-    gc_state.modal.spindle = gc_block.modal.spindle;
-  }
-  pl_data->condition |= gc_state.modal.spindle; // Set condition flag for planner use.
+    // [7. Spindle control ]:
+    if (gc_state.modal.spindle != gc_block.modal.spindle) {
+        // Update spindle control and apply spindle speed when enabling it in this block.
+        // NOTE: All spindle state changes are synced, even in laser mode. Also, pl_data,
+        // rather than gc_state, is used to manage laser state for non-laser motions.
+        grbl.spindle.sync(gc_block.modal.spindle, pl_data->spindle_speed);
+        gc_state.modal.spindle = gc_block.modal.spindle;
+    }
+    pl_data->condition |= gc_state.modal.spindle; // Set condition flag for planner use.
 
   // [8. Coolant control ]:
   if (gc_state.modal.coolant != gc_block.modal.coolant) {
@@ -1116,14 +1116,14 @@ uint8_t gc_execute_line(char *line)
         grbl.sys.spindle_speed_ovr = DEFAULT_SPINDLE_SPEED_OVERRIDE;
       #endif
 
-      // Execute coordinate change and spindle/coolant stop.
-      if (grbl.sys.state != STATE_CHECK_MODE) {
-        if (!(grbl.settings.read_coord_data(gc_state.modal.coord_select,gc_state.coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
-        system_flag_wco_change(); // Set to refresh immediately just in case something altered.
-        spindle_set_state(SPINDLE_DISABLE,0.0f);
-        coolant_set_state(COOLANT_DISABLE);
-      }
-      report_feedback_message(MESSAGE_PROGRAM_END);
+        // Execute coordinate change and spindle/coolant stop.
+        if (grbl.sys.state != STATE_CHECK_MODE) {
+            if (!(grbl.settings.read_coord_data(gc_state.modal.coord_select,gc_state.coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
+            system_flag_wco_change(); // Set to refresh immediately just in case something altered.
+            grbl.spindle.set_state(SPINDLE_DISABLE,0.0f);
+            coolant_set_state(COOLANT_DISABLE);
+        }
+        report_feedback_message(MESSAGE_PROGRAM_END);
     }
     gc_state.modal.program_flow = PROGRAM_FLOW_RUNNING; // Reset program flow.
   }

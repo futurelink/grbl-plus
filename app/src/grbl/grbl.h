@@ -61,6 +61,7 @@ public:
     GRBLSettings settings;
     GRBLPlanner planner;
     GRBLSteppers steppers;
+    GRBLSpindle spindle;
 
     // Declare system global variable structure
     system_t sys;

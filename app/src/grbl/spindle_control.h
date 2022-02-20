@@ -34,27 +34,34 @@ extern "C" {
 #define SPINDLE_STATE_CW       bit(0)
 #define SPINDLE_STATE_CCW      bit(1)
 
-// Initializes spindle pins and hardware PWM, if enabled.
-void spindle_init();
+class GRBLSpindle {
+private:
+#ifdef VARIABLE_SPINDLE
+    float pwm_gradient; // Precalulated value to speed up rpm to PWM conversions.
+#endif
+public:
+    // Initializes spindle pins and hardware PWM, if enabled.
+    void init();
 
-// Returns current spindle output state. Overrides may alter it from programmed states.
-uint8_t spindle_get_state();
+    // Returns current spindle output state. Overrides may alter it from programmed states.
+    uint8_t get_state();
 
-// Called by g-code parser when setting spindle state and requires a buffer sync.
-void spindle_sync(uint8_t state, float rpm);
+    // Called by g-code parser when setting spindle state and requires a buffer sync.
+    void sync(uint8_t state, float rpm);
 
-// Sets spindle running state with direction, enable, and spindle PWM.
-void spindle_set_state(uint8_t state, float rpm);
-  
-// Sets spindle PWM quickly for stepper ISR. Also called by spindle_set_state().
-// NOTE: 328p PWM register is 8-bit.
-void spindle_set_speed(uint16_t pwm_value);
-  
-// Computes 328p-specific PWM register value for the given RPM for quick updating.
-uint16_t spindle_compute_pwm_value(float rpm);
+    // Sets spindle running state with direction, enable, and spindle PWM.
+    void set_state(uint8_t state, float rpm);
 
-// Stop and start spindle routines. Called by all spindle routines and stepper ISR.
-void spindle_stop();
+    // Sets spindle PWM quickly for stepper ISR. Also called by spindle_set_state().
+    // NOTE: 328p PWM register is 8-bit.
+    void set_speed(uint16_t pwm_value);
+
+    // Computes 328p-specific PWM register value for the given RPM for quick updating.
+    uint16_t compute_pwm_value(float rpm);
+
+    // Stop and start spindle routines. Called by all spindle routines and stepper ISR.
+    void stop();
+};
 
 #ifdef __cplusplus
 }
