@@ -25,46 +25,23 @@
 #include "stm32f1xx_hal_tim.h"
 #include "stm32_helpers.h"
 
-const PORTPINDEF step_pin_mask[N_AXIS] =
-        {
-                1 << X_STEP_BIT,
-                1 << Y_STEP_BIT,
-                1 << Z_STEP_BIT,
-        };
-const PORTPINDEF direction_pin_mask[N_AXIS] =
-        {
-                1 << X_DIRECTION_BIT,
-                1 << Y_DIRECTION_BIT,
-                1 << Z_DIRECTION_BIT,
-        };
-const PORTPINDEF limit_pin_mask[N_AXIS] =
-        {
-                1 << X_LIMIT_BIT,
-                1 << Y_LIMIT_BIT,
-                1 << Z_LIMIT_BIT,
+const PORTPINDEF step_pin_mask[N_AXIS] = {
+    1 << X_STEP_BIT,
+    1 << Y_STEP_BIT,
+    1 << Z_STEP_BIT,
+};
+
+const PORTPINDEF direction_pin_mask[N_AXIS] = {
+    1 << X_DIRECTION_BIT,
+    1 << Y_DIRECTION_BIT,
+    1 << Z_DIRECTION_BIT,
         };
 
-st_block_t st_block_buffer[SEGMENT_BUFFER_SIZE-1];
-segment_t segment_buffer[SEGMENT_BUFFER_SIZE];
-stepper_t st;
-
-// Step segment ring buffer indices
-volatile uint8_t segment_buffer_tail;
-uint8_t segment_buffer_head;
-uint8_t segment_next_head;
-
-// Step and direction port invert masks.
-PORTPINDEF step_port_invert_mask;
-PORTPINDEF dir_port_invert_mask;
-
-// Used to avoid ISR nesting of the "Stepper Driver Interrupt". Should never occur though.
-volatile uint8_t busy;
-
-// Pointers for the step segment being prepped from the planner buffer. Accessed only by the
-// main program. Pointers may be planning segments or planner blocks ahead of what being executed.
-plan_block_t *pl_block;     // Pointer to the planner block being prepped
-st_block_t *st_prep_block;  // Pointer to the stepper block data being prepped
-st_prep_t prep;
+const PORTPINDEF limit_pin_mask[N_AXIS] = {
+    1 << X_LIMIT_BIT,
+    1 << Y_LIMIT_BIT,
+    1 << Z_LIMIT_BIT,
+};
 
 /* Prepares step segment buffer. Continuously called from main program.
 
@@ -79,19 +56,19 @@ st_prep_t prep;
    Currently, the segment buffer conservatively holds roughly up to 40-50 msec of steps.
    NOTE: Computation units are in steps, millimeters, and minutes.
 */
-void st_prep_buffer() {
+void GRBLSteppers::prep_buffer() {
     // Block step prep buffer, while in a suspend state and there is no suspend motion to execute.
-    if (bit_istrue(sys.step_control,STEP_CONTROL_END_MOTION)) { return; }
+    if (bit_istrue(grbl.sys.step_control,STEP_CONTROL_END_MOTION)) { return; }
 
     while (segment_buffer_tail != segment_next_head) { // Check if we need to fill the buffer.
 
         // Determine if we need to load a new planner block or if the block needs to be recomputed.
-        if (pl_block == NULL) {
+        if (pl_block == nullptr) {
 
             // Query planner for a queued block
-            if (sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) { pl_block = plan_get_system_motion_block(); }
-            else { pl_block = plan_get_current_block(); }
-            if (pl_block == NULL) { return; } // No planner blocks. Exit.
+            if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) { pl_block = grbl.planner.get_system_motion_block(); }
+            else { pl_block = grbl.planner.get_current_block(); }
+            if (pl_block == nullptr) { return; } // No planner blocks. Exit.
 
             // Check if we need to only recompute the velocity profile or load a new block.
             if (prep.recalculate_flag & PREP_FLAG_RECALCULATE) {
@@ -104,7 +81,7 @@ void st_prep_buffer() {
 #endif
             } else {
                 // Load the Bresenham stepping data for the block.
-                prep.st_block_index = st_next_block_index(prep.st_block_index);
+                prep.st_block_index = next_block_index(prep.st_block_index);
 
                 // Prepare and copy Bresenham algorithm segment data from the new planner block, so that
                 // when the segment buffer completes the planner block, it may be discarded when the
@@ -129,7 +106,7 @@ void st_prep_buffer() {
                 prep.req_mm_increment = REQ_MM_INCREMENT_SCALAR/prep.step_per_mm;
                 prep.dt_remainder = 0.0f; // Reset for new segment block
 
-                if ((sys.step_control & STEP_CONTROL_EXECUTE_HOLD) || (prep.recalculate_flag & PREP_FLAG_DECEL_OVERRIDE)) {
+                if ((grbl.sys.step_control & STEP_CONTROL_EXECUTE_HOLD) || (prep.recalculate_flag & PREP_FLAG_DECEL_OVERRIDE)) {
                     // New block loaded mid-hold. Override planner block entry speed to enforce deceleration.
                     prep.current_speed = prep.exit_speed;
                     pl_block->entry_speed_sqr = prep.exit_speed*prep.exit_speed;
@@ -142,7 +119,7 @@ void st_prep_buffer() {
                 // Setup laser mode variables. PWM rate adjusted motions will always complete a motion with the
                 // spindle off.
                 st_prep_block->is_pwm_rate_adjusted = false;
-                if (settings.flags & BITFLAG_LASER_MODE) {
+                if (grbl.settings.flags() & BITFLAG_LASER_MODE) {
                     if (pl_block->condition & PL_COND_FLAG_SPINDLE_CCW) {
                         // Pre-compute inverse programmed rate to speed up PWM updating per step segment.
                         prep.inv_rate = 1.0f / pl_block->programmed_rate;
@@ -160,7 +137,7 @@ void st_prep_buffer() {
             */
             prep.mm_complete = 0.0f; // Default velocity profile complete at 0.0mm from end of block.
             float inv_2_accel = 0.5f/pl_block->acceleration;
-            if (sys.step_control & STEP_CONTROL_EXECUTE_HOLD) { // [Forced Deceleration to Zero Velocity]
+            if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_HOLD) { // [Forced Deceleration to Zero Velocity]
                 // Compute velocity profile parameters for a feed hold in-progress. This profile overrides
                 // the planner block profile, enforcing a deceleration to zero speed.
                 prep.ramp_type = RAMP_DECEL;
@@ -180,20 +157,20 @@ void st_prep_buffer() {
 
                 float exit_speed_sqr;
                 float nominal_speed;
-                if (sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) {
+                if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) {
                     prep.exit_speed = exit_speed_sqr = 0.0f; // Enforce stop at end of system motion.
                 } else {
-                    exit_speed_sqr = plan_get_exec_block_exit_speed_sqr();
+                    exit_speed_sqr = grbl.planner.get_exec_block_exit_speed_sqr();
                     prep.exit_speed = sqrtf(exit_speed_sqr);
                 }
 
-                nominal_speed = plan_compute_profile_nominal_speed(pl_block);
+                nominal_speed = GRBLPlanner::compute_profile_nominal_speed(pl_block);
                 float nominal_speed_sqr = nominal_speed*nominal_speed;
                 float intersect_distance =
-                        0.5f*(pl_block->millimeters+inv_2_accel*(pl_block->entry_speed_sqr-exit_speed_sqr));
+                        0.5f * (pl_block->millimeters + inv_2_accel * (pl_block->entry_speed_sqr - exit_speed_sqr));
 
                 if (pl_block->entry_speed_sqr > nominal_speed_sqr) { // Only occurs during override reductions.
-                    prep.accelerate_until = pl_block->millimeters - inv_2_accel*(pl_block->entry_speed_sqr-nominal_speed_sqr);
+                    prep.accelerate_until = pl_block->millimeters - inv_2_accel * (pl_block->entry_speed_sqr - nominal_speed_sqr);
                     if (prep.accelerate_until <= 0.0f) { // Deceleration-only.
                         prep.ramp_type = RAMP_DECEL;
                         // prep.decelerate_after = pl_block->millimeters;
@@ -244,7 +221,7 @@ void st_prep_buffer() {
             }
 
 #ifdef VARIABLE_SPINDLE
-            bit_true(sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM); // Force update whenever updating block.
+            bit_true(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM); // Force update whenever updating block.
 #endif
         }
 
@@ -357,7 +334,7 @@ void st_prep_buffer() {
           Compute spindle speed PWM output for step segment
         */
 
-        if (st_prep_block->is_pwm_rate_adjusted || (sys.step_control & STEP_CONTROL_UPDATE_SPINDLE_PWM)) {
+        if (st_prep_block->is_pwm_rate_adjusted || (grbl.sys.step_control & STEP_CONTROL_UPDATE_SPINDLE_PWM)) {
             if (pl_block->condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)) {
                 float rpm = pl_block->spindle_speed;
                 // NOTE: Feed and rapid overrides are independent of PWM value and do not alter laser power/rate.
@@ -367,10 +344,10 @@ void st_prep_buffer() {
                 prep.current_spindle_pwm = spindle_compute_pwm_value(rpm);
             }
             else {
-                sys.spindle_speed = 0.0;
+                grbl.sys.spindle_speed = 0.0;
                 prep.current_spindle_pwm = SPINDLE_PWM_OFF_VALUE;
             }
-            bit_false(sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
+            bit_false(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
         }
         prep_segment->spindle_pwm = prep.current_spindle_pwm; // Reload segment PWM value
 
@@ -393,10 +370,10 @@ void st_prep_buffer() {
 
         // Bail if we are at the end of a feed hold and don't have a step to execute.
         if (prep_segment->n_step == 0) {
-            if (sys.step_control & STEP_CONTROL_EXECUTE_HOLD) {
+            if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_HOLD) {
                 // Less than one step to decelerate to zero speed, but already very close. AMASS
                 // requires full steps to execute. So, just bail.
-                bit_true(sys.step_control,STEP_CONTROL_END_MOTION);
+                bit_true(grbl.sys.step_control,STEP_CONTROL_END_MOTION);
 #ifdef PARKING_ENABLE
                 if (!(prep.recalculate_flag & PREP_FLAG_PARKING)) { prep.recalculate_flag |= PREP_FLAG_HOLD_PARTIAL_BLOCK; }
 #endif
@@ -465,19 +442,19 @@ void st_prep_buffer() {
                 // Reset prep parameters for resuming and then bail. Allow the stepper ISR to complete
                 // the segment queue, where realtime protocol will set new state upon receiving the
                 // cycle stop flag from the ISR. Prep_segment is blocked until then.
-                bit_true(sys.step_control,STEP_CONTROL_END_MOTION);
+                bit_true(grbl.sys.step_control,STEP_CONTROL_END_MOTION);
 #ifdef PARKING_ENABLE
                 if (!(prep.recalculate_flag & PREP_FLAG_PARKING)) { prep.recalculate_flag |= PREP_FLAG_HOLD_PARTIAL_BLOCK; }
 #endif
                 return; // Bail!
             } else { // End of planner block
                 // The planner block is complete. All steps are set to be executed in the segment buffer.
-                if (sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) {
-                    bit_true(sys.step_control,STEP_CONTROL_END_MOTION);
+                if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) {
+                    bit_true(grbl.sys.step_control,STEP_CONTROL_END_MOTION);
                     return;
                 }
-                pl_block = NULL; // Set pointer to indicate check and load next planner block.
-                plan_discard_current_block();
+                pl_block = nullptr; // Set pointer to indicate check and load next planner block.
+                grbl.planner.discard_current_block();
             }
         }
     }
@@ -485,9 +462,9 @@ void st_prep_buffer() {
 
 // Stepper state initialization. Cycle should only start if the st.cycle_start flag is
 // enabled. Startup init and limits call this function but shouldn't start the cycle.
-void st_wake_up() {
+void GRBLSteppers::wake_up() {
     // Enable stepper drivers.
-    if (bit_istrue(settings.flags, BITFLAG_INVERT_ST_ENABLE)) {
+    if (bit_istrue(grbl.settings.flags(), BITFLAG_INVERT_ST_ENABLE)) {
         SetStepperDisableBit();
     } else {
         ResetStepperDisableBit();
@@ -504,7 +481,7 @@ void st_wake_up() {
     OCR0A = -(((settings.pulse_microseconds)*TICKS_PER_MICROSECOND) >> 3);
 #else // Normal operation
     // Set step pulse time. Ad hoc computation from oscilloscope. Uses two's complement.
-    st.step_pulse_time = (settings.pulse_microseconds)*TICKS_PER_MICROSECOND;
+    st.step_pulse_time = (grbl.settings.pulse_microseconds())*TICKS_PER_MICROSECOND;
 #endif
 
     // Enable Stepper Driver Interrupt
@@ -521,9 +498,8 @@ void st_wake_up() {
     NVIC_EnableIRQ(TIM2_IRQn);
 }
 
-
 // Stepper shutdown
-void st_go_idle() {
+void GRBLSteppers::go_idle() {
     // Disable Stepper Driver Interrupt. Allow Stepper Port Reset Interrupt to finish, if active.
     NVIC_DisableIRQ(TIM2_IRQn);
 
@@ -531,14 +507,14 @@ void st_go_idle() {
 
     // Set stepper driver idle state, disabled or enabled, depending on settings and circumstances.
     bool pin_state = false; // Keep enabled.
-    if (((settings.stepper_idle_lock_time != 0xff) || sys_rt_exec_alarm || sys.state == STATE_SLEEP) && sys.state != STATE_HOMING) {
+    if (((grbl.settings.stepper_idle_lock_time() != 0xff) || grbl.sys_rt_exec_alarm || grbl.sys.state == STATE_SLEEP) && grbl.sys.state != STATE_HOMING) {
         // Force stepper dwell to lock axes for a defined amount of time to ensure the axes come to a complete
         // stop and not drift from residual inertial forces at the end of the last movement.
-        HAL_Delay(settings.stepper_idle_lock_time);
+        HAL_Delay(grbl.settings.stepper_idle_lock_time());
         pin_state = true; // Override. Disable steppers.
     }
 
-    if (bit_istrue(settings.flags, BITFLAG_INVERT_ST_ENABLE)) { pin_state = !pin_state; } // Apply pin invert.
+    if (bit_istrue(grbl.settings.flags(), BITFLAG_INVERT_ST_ENABLE)) { pin_state = !pin_state; } // Apply pin invert.
 
     if (pin_state) {
         SetStepperDisableBit();
@@ -548,21 +524,21 @@ void st_go_idle() {
 }
 
 // Reset and clear stepper subsystem variables
-void st_reset() {
+void GRBLSteppers::reset() {
     // Initialize stepper driver idle state.
-    st_go_idle();
+    go_idle();
 
     // Initialize stepper algorithm variables.
     memset(&prep, 0, sizeof(st_prep_t));
     memset(&st, 0, sizeof(stepper_t));
-    st.exec_segment = NULL;
-    pl_block = NULL;  // Planner block pointer used by segment buffer
+    st.exec_segment = nullptr;
+    pl_block = nullptr;  // Planner block pointer used by segment buffer
     segment_buffer_tail = 0;
     segment_buffer_head = 0; // empty = tail
     segment_next_head = 1;
     busy = false;
 
-    st_generate_step_dir_invert_masks();
+    generate_step_dir_invert_masks();
     st.dir_outbits = dir_port_invert_mask; // Initialize direction bits to default.
 
     // Initialize step and direction port pins.
@@ -571,33 +547,33 @@ void st_reset() {
 }
 
 // Initialize and start the stepper motor subsystem
-void stepper_init() {
+void GRBLSteppers::init() {
     // Configure step and direction interface pins
     stm32_stepper_init();
 }
 
 // Generates the step and direction port invert masks used in the Stepper Interrupt Driver.
-void st_generate_step_dir_invert_masks() {
+void GRBLSteppers::generate_step_dir_invert_masks() {
     uint8_t idx;
     step_port_invert_mask = 0;
     dir_port_invert_mask = 0;
     for (idx=0; idx<N_AXIS; idx++) {
-        if (bit_istrue(settings.step_invert_mask,bit(idx))) { step_port_invert_mask |= step_pin_mask[idx]; }
-        if (bit_istrue(settings.dir_invert_mask,bit(idx))) { dir_port_invert_mask |= direction_pin_mask[idx]; }
+        if (bit_istrue(grbl.settings.step_invert_mask(),bit(idx))) { step_port_invert_mask |= step_pin_mask[idx]; }
+        if (bit_istrue(grbl.settings.dir_invert_mask(),bit(idx))) { dir_port_invert_mask |= direction_pin_mask[idx]; }
     }
 }
 
 // Called by planner_recalculate() when the executing block is updated by the new plan.
-void st_update_plan_block_parameters() {
-    if (pl_block != NULL) { // Ignore if at start of a new block.
+void GRBLSteppers::update_plan_block_parameters() {
+    if (pl_block != nullptr) { // Ignore if at start of a new block.
         prep.recalculate_flag |= PREP_FLAG_RECALCULATE;
         pl_block->entry_speed_sqr = prep.current_speed*prep.current_speed; // Update entry speed.
-        pl_block = NULL; // Flag st_prep_segment() to load and check active velocity profile.
+        pl_block = nullptr; // Flag st_prep_segment() to load and check active velocity profile.
     }
 }
 
 // Increments the step segment buffer block data ring buffer.
-uint8_t st_next_block_index(uint8_t block_index) {
+uint8_t GRBLSteppers::next_block_index(uint8_t block_index) {
     block_index++;
     if ( block_index == (SEGMENT_BUFFER_SIZE-1) ) { return(0); }
     return(block_index);
@@ -605,7 +581,7 @@ uint8_t st_next_block_index(uint8_t block_index) {
 
 #ifdef PARKING_ENABLE
 // Changes the run state of the step segment buffer to execute the special parking motion.
-void st_parking_setup_buffer() {
+void GRBLSteppers::st_parking_setup_buffer() {
     // Store step execution data of partially completed block, if necessary.
     if (prep.recalculate_flag & PREP_FLAG_HOLD_PARTIAL_BLOCK) {
         prep.last_st_block_index = prep.st_block_index;
@@ -616,11 +592,11 @@ void st_parking_setup_buffer() {
     // Set flags to execute a parking motion
     prep.recalculate_flag |= PREP_FLAG_PARKING;
     prep.recalculate_flag &= ~(PREP_FLAG_RECALCULATE);
-    pl_block = NULL; // Always reset parking motion to reload new block.
+    pl_block = nullptr; // Always reset parking motion to reload new block.
 }
 
 // Restores the step segment buffer to the normal run state after a parking motion.
-void st_parking_restore_buffer() {
+void GRBLSteppers::st_parking_restore_buffer() {
     // Restore step execution data and flags of partially completed block, if necessary.
     if (prep.recalculate_flag & PREP_FLAG_HOLD_PARTIAL_BLOCK) {
         st_prep_block = &st_block_buffer[prep.last_st_block_index];
@@ -633,7 +609,7 @@ void st_parking_restore_buffer() {
     } else {
         prep.recalculate_flag = false;
     }
-    pl_block = NULL; // Set to reload next block.
+    pl_block = nullptr; // Set to reload next block.
 }
 #endif
 
@@ -641,8 +617,8 @@ void st_parking_restore_buffer() {
 // however is not exactly the current speed, but the speed computed in the last step segment
 // in the segment buffer. It will always be behind by up to the number of segment blocks (-1)
 // divided by the ACCELERATION TICKS PER SECOND in seconds.
-float st_get_realtime_rate() {
-    if (sys.state & (STATE_CYCLE | STATE_HOMING | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
+float GRBLSteppers::get_realtime_rate() const {
+    if (grbl.sys.state & (STATE_CYCLE | STATE_HOMING | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
         return prep.current_speed;
     }
     return 0.0f;
@@ -735,7 +711,7 @@ float st_get_realtime_rate() {
 // TODO: Replace direct updating of the int32 position counters in the ISR somehow. Perhaps use smaller
 // int8 variables and update position counters only when a segment completes. This can get complicated
 // with probing and homing cycles that require true real-time positions.
-void st_tim2_handler() {
+void GRBLSteppers::tim2_handler() {
     if ((TIM2->SR & TIM_SR_UIF) != 0) {     // check interrupt source
         TIM2->SR &= ~TIM_SR_UIF;             // clear UIF flag
         TIM2->CNT = 0;
@@ -764,7 +740,7 @@ void st_tim2_handler() {
     busy = true;
 
     // If there is no step segment, attempt to pop one from the stepper buffer
-    if (st.exec_segment == NULL) {
+    if (st.exec_segment == nullptr) {
         // Anything in the buffer? If so, load and initialize next step segment.
         if (segment_buffer_head != segment_buffer_tail) {
             // Initialize new step segment and load number of steps to execute
@@ -804,7 +780,7 @@ void st_tim2_handler() {
 
         } else {
             // Segment buffer empty. Shutdown.
-            st_go_idle();
+            go_idle();
 
             // Ensure pwm is set properly upon completion of rate-controlled motion.
 #ifdef VARIABLE_SPINDLE
@@ -817,7 +793,7 @@ void st_tim2_handler() {
     }
 
     // Check probing state.
-    if (sys_probe_state == PROBE_ACTIVE) { probe_state_monitor(); }
+    if (grbl.sys_probe_state == PROBE_ACTIVE) { probe_state_monitor(); }
 
     // Reset step out bits.
     st.step_outbits = 0;
@@ -832,8 +808,8 @@ void st_tim2_handler() {
     if (st.counter_x > st.exec_block->step_event_count) {
         st.step_outbits |= (1<<X_STEP_BIT);
         st.counter_x -= st.exec_block->step_event_count;
-        if (st.exec_block->direction_bits & (1<<X_DIRECTION_BIT)) { sys_position[X_AXIS]--; }
-        else { sys_position[X_AXIS]++; }
+        if (st.exec_block->direction_bits & (1<<X_DIRECTION_BIT)) { grbl.sys_position[X_AXIS]--; }
+        else { grbl.sys_position[X_AXIS]++; }
     }
 
 #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
@@ -845,8 +821,8 @@ void st_tim2_handler() {
     if (st.counter_y > st.exec_block->step_event_count) {
         st.step_outbits |= (1<<Y_STEP_BIT);
         st.counter_y -= st.exec_block->step_event_count;
-        if (st.exec_block->direction_bits & (1<<Y_DIRECTION_BIT)) { sys_position[Y_AXIS]--; }
-        else { sys_position[Y_AXIS]++; }
+        if (st.exec_block->direction_bits & (1<<Y_DIRECTION_BIT)) { grbl.sys_position[Y_AXIS]--; }
+        else { grbl.sys_position[Y_AXIS]++; }
     }
 
 #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
@@ -858,17 +834,17 @@ void st_tim2_handler() {
     if (st.counter_z > st.exec_block->step_event_count) {
         st.step_outbits |= (1<<Z_STEP_BIT);
         st.counter_z -= st.exec_block->step_event_count;
-        if (st.exec_block->direction_bits & (1<<Z_DIRECTION_BIT)) { sys_position[Z_AXIS]--; }
-        else { sys_position[Z_AXIS]++; }
+        if (st.exec_block->direction_bits & (1<<Z_DIRECTION_BIT)) { grbl.sys_position[Z_AXIS]--; }
+        else { grbl.sys_position[Z_AXIS]++; }
     }
 
     // During a homing cycle, lock out and prevent desired axes from moving.
-    if (sys.state == STATE_HOMING) { st.step_outbits &= sys.homing_axis_lock; }
+    if (grbl.sys.state == STATE_HOMING) { st.step_outbits &= grbl.sys.homing_axis_lock; }
 
     st.step_count--; // Decrement step events count
     if (st.step_count == 0) {
         // Segment is complete. Discard current segment and advance segment indexing.
-        st.exec_segment = NULL;
+        st.exec_segment = nullptr;
 
         uint8_t segment_tail_next = segment_buffer_tail + 1;
         if (segment_tail_next == SEGMENT_BUFFER_SIZE) segment_tail_next = 0;
@@ -890,7 +866,7 @@ void st_tim2_handler() {
 // This interrupt is enabled by ISR_TIMER1_COMPAREA when it sets the motor port bits to execute
 // a step. This ISR resets the motor port after a short period (settings.pulse_microseconds)
 // completing one step cycle.
-void st_tim3_handler() {
+void GRBLSteppers::tim3_handler() const {
     if ((TIM3->SR & TIM_SR_UIF) != 0) { // check interrupt source
         TIM3->SR &= ~TIM_SR_UIF;         // clear UIF flag
         TIM3->CNT = 0;

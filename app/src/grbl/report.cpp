@@ -172,31 +172,31 @@ void report_grbl_help() {
 
 // Grbl global settings print out.
 // NOTE: The numbering scheme here must correlate to storing in settings.c
-void report_grbl_settings() {
+void report_grbl_settings(GRBLSettings *settings) {
   // Print Grbl settings.
-  report_util_uint8_setting(0,settings.pulse_microseconds);
-  report_util_uint8_setting(1,settings.stepper_idle_lock_time);
-  report_util_uint8_setting(2,settings.step_invert_mask);
-  report_util_uint8_setting(3,settings.dir_invert_mask);
-  report_util_uint8_setting(4,bit_istrue(settings.flags,BITFLAG_INVERT_ST_ENABLE));
-  report_util_uint8_setting(5,bit_istrue(settings.flags,BITFLAG_INVERT_LIMIT_PINS));
-  report_util_uint8_setting(6,bit_istrue(settings.flags,BITFLAG_INVERT_PROBE_PIN));
-  report_util_uint8_setting(10,settings.status_report_mask);
-  report_util_float_setting(11,settings.junction_deviation,N_DECIMAL_SETTINGVALUE);
-  report_util_float_setting(12,settings.arc_tolerance,N_DECIMAL_SETTINGVALUE);
-  report_util_uint8_setting(13,bit_istrue(settings.flags,BITFLAG_REPORT_INCHES));
-  report_util_uint8_setting(20,bit_istrue(settings.flags,BITFLAG_SOFT_LIMIT_ENABLE));
-  report_util_uint8_setting(21,bit_istrue(settings.flags,BITFLAG_HARD_LIMIT_ENABLE));
-  report_util_uint8_setting(22,bit_istrue(settings.flags,BITFLAG_HOMING_ENABLE));
-  report_util_uint8_setting(23,settings.homing_dir_mask);
-  report_util_float_setting(24,settings.homing_feed_rate,N_DECIMAL_SETTINGVALUE);
-  report_util_float_setting(25,settings.homing_seek_rate,N_DECIMAL_SETTINGVALUE);
-  report_util_uint8_setting(26,settings.homing_debounce_delay);
-  report_util_float_setting(27,settings.homing_pulloff,N_DECIMAL_SETTINGVALUE);
-  report_util_float_setting(30,settings.rpm_max,N_DECIMAL_RPMVALUE);
-  report_util_float_setting(31,settings.rpm_min,N_DECIMAL_RPMVALUE);
+  report_util_uint8_setting(0,settings->pulse_microseconds());
+  report_util_uint8_setting(1,settings->stepper_idle_lock_time());
+  report_util_uint8_setting(2,settings->step_invert_mask());
+  report_util_uint8_setting(3,settings->dir_invert_mask());
+  report_util_uint8_setting(4,bit_istrue(settings->flags(),BITFLAG_INVERT_ST_ENABLE));
+  report_util_uint8_setting(5,bit_istrue(settings->flags(),BITFLAG_INVERT_LIMIT_PINS));
+  report_util_uint8_setting(6,bit_istrue(settings->flags(),BITFLAG_INVERT_PROBE_PIN));
+  report_util_uint8_setting(10,settings->status_report_mask());
+  report_util_float_setting(11,settings->junction_deviation(),N_DECIMAL_SETTINGVALUE);
+  report_util_float_setting(12,settings->arc_tolerance(),N_DECIMAL_SETTINGVALUE);
+  report_util_uint8_setting(13,bit_istrue(settings->flags(),BITFLAG_REPORT_INCHES));
+  report_util_uint8_setting(20,bit_istrue(settings->flags(),BITFLAG_SOFT_LIMIT_ENABLE));
+  report_util_uint8_setting(21,bit_istrue(settings->flags(),BITFLAG_HARD_LIMIT_ENABLE));
+  report_util_uint8_setting(22,bit_istrue(settings->flags(),BITFLAG_HOMING_ENABLE));
+  report_util_uint8_setting(23,settings->homing_dir_mask());
+  report_util_float_setting(24,settings->homing_feed_rate(),N_DECIMAL_SETTINGVALUE);
+  report_util_float_setting(25,settings->homing_seek_rate(),N_DECIMAL_SETTINGVALUE);
+  report_util_uint8_setting(26,settings->homing_debounce_delay());
+  report_util_float_setting(27,settings->homing_pulloff(),N_DECIMAL_SETTINGVALUE);
+  report_util_float_setting(30,settings->rpm_max(),N_DECIMAL_RPMVALUE);
+  report_util_float_setting(31,settings->rpm_min(),N_DECIMAL_RPMVALUE);
   #ifdef VARIABLE_SPINDLE
-    report_util_uint8_setting(32,bit_istrue(settings.flags,BITFLAG_LASER_MODE));
+    report_util_uint8_setting(32,bit_istrue(settings->flags(),BITFLAG_LASER_MODE));
   #else
     report_util_uint8_setting(32,0);
   #endif
@@ -206,10 +206,10 @@ void report_grbl_settings() {
   for (set_idx=0; set_idx<AXIS_N_SETTINGS; set_idx++) {
     for (idx=0; idx<N_AXIS; idx++) {
       switch (set_idx) {
-        case 0: report_util_float_setting(val+idx,settings.steps_per_mm[idx],N_DECIMAL_SETTINGVALUE); break;
-        case 1: report_util_float_setting(val+idx,settings.max_rate[idx],N_DECIMAL_SETTINGVALUE); break;
-        case 2: report_util_float_setting(val+idx,settings.acceleration[idx]/(60*60),N_DECIMAL_SETTINGVALUE); break;
-        case 3: report_util_float_setting(val+idx,-settings.max_travel[idx],N_DECIMAL_SETTINGVALUE); break;
+        case 0: report_util_float_setting(val+idx,settings->steps_per_mm(idx),N_DECIMAL_SETTINGVALUE); break;
+        case 1: report_util_float_setting(val+idx,settings->max_rate(idx),N_DECIMAL_SETTINGVALUE); break;
+        case 2: report_util_float_setting(val+idx,settings->acceleration(idx)/(60*60),N_DECIMAL_SETTINGVALUE); break;
+        case 3: report_util_float_setting(val+idx,-settings->max_travel(idx),N_DECIMAL_SETTINGVALUE); break;
       }
     }
     val += AXIS_SETTINGS_INCREMENT;
@@ -224,10 +224,10 @@ void report_probe_parameters() {
     // Report in terms of machine position.
     printPgmString(PSTR("[PRB:"));
     float print_position[N_AXIS];
-    system_convert_array_steps_to_mpos(print_position,sys_probe_position);
+    system_convert_array_steps_to_mpos(print_position,grbl.sys_probe_position);
     report_util_axis_values(print_position);
     serial_write(':');
-    print_uint8_base10(sys.probe_succeeded);
+    print_uint8_base10(grbl.sys.probe_succeeded);
     report_util_feedback_line_feed();
 }
 
@@ -236,7 +236,7 @@ void report_ngc_parameters() {
     float coord_data[N_AXIS];
     uint8_t coord_select;
     for (coord_select = 0; coord_select <= SETTING_INDEX_NCOORD; coord_select++) {
-        if (!(settings_read_coord_data(coord_select,coord_data))) {
+        if (!(grbl.settings.read_coord_data(coord_select,coord_data))) {
             report_status_message(STATUS_SETTING_READ_FAIL);
             return;
         }
@@ -318,7 +318,7 @@ void report_gcode_modes() {
     #endif
 
 	#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
-		if (sys.override_ctrl == OVERRIDE_PARKING_MOTION) {
+		if (grbl.sys.override_ctrl == OVERRIDE_PARKING_MOTION) {
 			report_util_gcode_modes_M();
 			print_uint8_base10(56);
 		}
@@ -448,19 +448,19 @@ void report_echo_line_received(char *line) {
 void report_realtime_status() {
   uint8_t idx;
   int32_t current_position[N_AXIS]; // Copy current state of the system position variable
-  memcpy(current_position, sys_position, sizeof(sys_position));
+  memcpy(current_position, grbl.sys_position, sizeof(grbl.sys_position));
   float print_position[N_AXIS];
   system_convert_array_steps_to_mpos(print_position, current_position);
 
   // Report current machine state and sub-states
   serial_write('<');
-  switch (sys.state) {
+  switch (grbl.sys.state) {
   case STATE_IDLE: printPgmString(PSTR("Idle")); break;
   case STATE_CYCLE: printPgmString(PSTR("Run")); break;
   case STATE_HOLD:
-    if (!(sys.suspend & SUSPEND_JOG_CANCEL)) {
+    if (!(grbl.sys.suspend & SUSPEND_JOG_CANCEL)) {
       printPgmString(PSTR("Hold:"));
-      if (sys.suspend & SUSPEND_HOLD_COMPLETE) { serial_write('0'); } // Ready to resume
+      if (grbl.sys.suspend & SUSPEND_HOLD_COMPLETE) { serial_write('0'); } // Ready to resume
       else { serial_write('1'); } // Actively holding
       break;
     } // Continues to print jog state during jog cancel.
@@ -470,12 +470,12 @@ void report_realtime_status() {
   case STATE_CHECK_MODE: printPgmString(PSTR("Check")); break;
   case STATE_SAFETY_DOOR:
     printPgmString(PSTR("Door:"));
-    if (sys.suspend & SUSPEND_INITIATE_RESTORE) {
+    if (grbl.sys.suspend & SUSPEND_INITIATE_RESTORE) {
       serial_write('3'); // Restoring
     }
     else {
-      if (sys.suspend & SUSPEND_RETRACT_COMPLETE) {
-        if (sys.suspend & SUSPEND_SAFETY_DOOR_AJAR) {
+      if (grbl.sys.suspend & SUSPEND_RETRACT_COMPLETE) {
+        if (grbl.sys.suspend & SUSPEND_SAFETY_DOOR_AJAR) {
           serial_write('1'); // Door ajar
         }
         else {
@@ -491,20 +491,20 @@ void report_realtime_status() {
   }
 
   float wco[N_AXIS];
-  if (bit_isfalse(settings.status_report_mask, BITFLAG_RT_STATUS_POSITION_TYPE) ||
-    (sys.report_wco_counter == 0)) {
+  if (bit_isfalse(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE) ||
+    (grbl.sys.report_wco_counter == 0)) {
     for (idx = 0; idx< N_AXIS; idx++) {
       // Apply work coordinate offsets and tool length offset to current position.
       wco[idx] = gc_state.coord_system[idx] + gc_state.coord_offset[idx];
       if (idx == TOOL_LENGTH_OFFSET_AXIS) { wco[idx] += gc_state.tool_length_offset; }
-      if (bit_isfalse(settings.status_report_mask, BITFLAG_RT_STATUS_POSITION_TYPE)) {
+      if (bit_isfalse(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE)) {
         print_position[idx] -= wco[idx];
       }
     }
   }
 
   // Report machine position
-  if (bit_istrue(settings.status_report_mask, BITFLAG_RT_STATUS_POSITION_TYPE)) {
+  if (bit_istrue(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE)) {
     printPgmString(PSTR("|MPos:"));
   }
   else {
@@ -514,9 +514,9 @@ void report_realtime_status() {
 
   // Returns planner and serial read buffer states.
 #ifdef REPORT_FIELD_BUFFER_STATE
-  if (bit_istrue(settings.status_report_mask, BITFLAG_RT_STATUS_BUFFER_STATE)) {
+  if (bit_istrue(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_BUFFER_STATE)) {
     printPgmString(PSTR("|Bf:"));
-    print_uint8_base10(plan_get_block_buffer_available());
+    print_uint8_base10(grbl.planner.get_block_buffer_available());
     serial_write(',');
     print_uint8_base10(serial_get_rx_buffer_available());
   }
@@ -540,9 +540,9 @@ void report_realtime_status() {
 #ifdef REPORT_FIELD_CURRENT_FEED_SPEED
 #ifdef VARIABLE_SPINDLE
   printPgmString(PSTR("|FS:"));
-  printFloat_RateValue(st_get_realtime_rate());
+  printFloat_RateValue(grbl.steppers.get_realtime_rate());
   serial_write(',');
-  printFloat(sys.spindle_speed, N_DECIMAL_RPMVALUE);
+  printFloat(grbl.sys.spindle_speed, N_DECIMAL_RPMVALUE);
 #else
   printPgmString(PSTR("|F:"));
   printFloat_RateValue(st_get_realtime_rate());
@@ -573,31 +573,31 @@ void report_realtime_status() {
 #endif
 
 #ifdef REPORT_FIELD_WORK_COORD_OFFSET
-  if (sys.report_wco_counter > 0) { sys.report_wco_counter--; }
+  if (grbl.sys.report_wco_counter > 0) { grbl.sys.report_wco_counter--; }
   else {
-    if (sys.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
-        sys.report_wco_counter = (REPORT_WCO_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
+    if (grbl.sys.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
+        grbl.sys.report_wco_counter = (REPORT_WCO_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
     }
-    else { sys.report_wco_counter = (REPORT_WCO_REFRESH_IDLE_COUNT - 1); }
-    if (sys.report_ovr_counter == 0) { sys.report_ovr_counter = 1; } // Set override on next report.
+    else { grbl.sys.report_wco_counter = (REPORT_WCO_REFRESH_IDLE_COUNT - 1); }
+    if (grbl.sys.report_ovr_counter == 0) { grbl.sys.report_ovr_counter = 1; } // Set override on next report.
     printPgmString(PSTR("|WCO:"));
     report_util_axis_values(wco);
   }
 #endif
 
   #ifdef REPORT_FIELD_OVERRIDES
-    if (sys.report_ovr_counter > 0) { sys.report_ovr_counter--; }
+    if (grbl.sys.report_ovr_counter > 0) { grbl.sys.report_ovr_counter--; }
     else {
-      if (sys.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
-          sys.report_ovr_counter = (REPORT_OVR_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
+      if (grbl.sys.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
+          grbl.sys.report_ovr_counter = (REPORT_OVR_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
       }
-      else { sys.report_ovr_counter = (REPORT_OVR_REFRESH_IDLE_COUNT - 1); }
+      else { grbl.sys.report_ovr_counter = (REPORT_OVR_REFRESH_IDLE_COUNT - 1); }
       printPgmString(PSTR("|Ov:"));
-      print_uint8_base10(sys.f_override);
+      print_uint8_base10(grbl.sys.f_override);
       serial_write(',');
-      print_uint8_base10(sys.r_override);
+      print_uint8_base10(grbl.sys.r_override);
       serial_write(',');
-      print_uint8_base10(sys.spindle_speed_ovr);
+      print_uint8_base10(grbl.sys.spindle_speed_ovr);
 
       uint8_t sp_state = spindle_get_state();
       uint8_t cl_state = coolant_get_state();

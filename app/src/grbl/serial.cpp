@@ -74,7 +74,7 @@ void serial_write(uint8_t data) {
     // Wait until there is space in the buffer
     while (next_head == serial_tx_buffer_tail) {
         // TODO: Restructure st_prep_buffer() calls to be executed here during a long print.
-        if (sys_rt_exec_state & EXEC_RESET) { return; } // Only check for abort to avoid an endless loop.
+        if (grbl.sys_rt_exec_state & EXEC_RESET) { return; } // Only check for abort to avoid an endless loop.
     }
 
     // Store data and advance head
@@ -137,7 +137,7 @@ void OnUsbDataRx(uint8_t* dataIn, uint8_t length) {
                 switch(data) {
                 case CMD_SAFETY_DOOR:   system_set_exec_state_flag(EXEC_SAFETY_DOOR); break; // Set as true
                 case CMD_JOG_CANCEL:
-                    if (sys.state & STATE_JOG) { // Block all other states from invoking motion cancel.
+                    if (grbl.sys.state & STATE_JOG) { // Block all other states from invoking motion cancel.
                         system_set_exec_state_flag(EXEC_MOTION_CANCEL);
                     }
                     break;

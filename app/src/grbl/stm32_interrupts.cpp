@@ -70,12 +70,12 @@ void SysTick_Handler(void) {
     HAL_IncTick();
 
     // Heartbeat
-    /*if (grbl.cnt == 0) {
+    if (grbl.cnt == 0) {
         grbl.cnt = 1000;
         HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     } else {
         grbl.cnt--;
-    }*/
+    }
 
     serial_tx();    // Send
 }
@@ -106,9 +106,9 @@ void EXTI15_10_IRQHandler(void) {
 }
 
 void TIM2_IRQHandler() {
-    st_tim2_handler();
+    grbl.steppers.tim2_handler();
 }
 
 void TIM3_IRQHandler() {
-    st_tim3_handler();
+    grbl.steppers.tim3_handler();
 }

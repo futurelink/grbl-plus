@@ -4,6 +4,7 @@
 
   Copyright (c) 2011-2016 Sungeun K. Jeon for Gnea Research LLC
   Copyright (c) 2009-2011 Simen Svale Skogsrud
+  Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -47,7 +48,6 @@ extern "C" {
 #define PL_COND_MOTION_MASK    (PL_COND_FLAG_RAPID_MOTION|PL_COND_FLAG_SYSTEM_MOTION|PL_COND_FLAG_NO_FEED_OVERRIDE)
 #define PL_COND_ACCESSORY_MASK (PL_COND_FLAG_SPINDLE_CW|PL_COND_FLAG_SPINDLE_CCW|PL_COND_FLAG_COOLANT_FLOOD|PL_COND_FLAG_COOLANT_MIST)
 
-
 // This struct stores a linear movement of a g-code block motion with its critical "nominal" values
 // are as specified in the source g-code.
 typedef struct {
@@ -83,7 +83,6 @@ typedef struct {
 #endif
 } plan_block_t;
 
-
 // Planner data prototype. Must be used when passing new motions to the planner.
 typedef struct {
     float feed_rate;          // Desired feed rate for line motion. Value is ignored, if rapid motion.
@@ -94,55 +93,76 @@ typedef struct {
 #endif
 } plan_line_data_t;
 
+// Define planner variables
+typedef struct {
+    int32_t position[N_AXIS];          // The planner position of the tool in absolute steps. Kept separate
+    // from g-code position for movements requiring multiple line motions,
+    // i.e. arcs, canned cycles, and backlash compensation.
+    float previous_unit_vec[N_AXIS];   // Unit vector of previous path line segment
+    float previous_nominal_speed;  // Nominal speed of previous path line segment
+} planner_t;
 
-// Initialize and reset the motion plan subsystem
-void plan_reset(); // Reset all
-void plan_reset_buffer(); // Reset buffer only.
+class GRBLPlanner {
+private:
+    void recalculate();
+    static void compute_profile_parameters(plan_block_t *block, float nominal_speed, float prev_nominal_speed);
+    static uint8_t prev_block_index(uint8_t block_index);
 
-// Add a new linear movement to the buffer. target[N_AXIS] is the signed, absolute target position
-// in millimeters. Feed rate specifies the speed of the motion. If feed rate is inverted, the feed
-// rate is taken to mean "frequency" and would complete the operation in 1/feed_rate minutes.
-uint8_t plan_buffer_line(float *target, plan_line_data_t *pl_data);
+public:
+    planner_t pl;
 
-// Called when the current block is no longer needed. Discards the block and makes the memory
-// availible for new blocks.
-void plan_discard_current_block();
+    plan_block_t block_buffer[BLOCK_BUFFER_SIZE];  // A ring buffer for motion instructions
+    uint8_t block_buffer_tail;     // Index of the block to process now
+    uint8_t block_buffer_head;     // Index of the next block to be pushed
+    uint8_t next_buffer_head;      // Index of the next buffer head
+    uint8_t block_buffer_planned;  // Index of the optimally planned block
 
-// Gets the planner block for the special system motion cases. (Parking/Homing)
-plan_block_t *plan_get_system_motion_block();
+    void reset();
+    void reset_buffer();
 
-// Gets the current block. Returns NULL if buffer empty
-plan_block_t *plan_get_current_block();
+    // Add a new linear movement to the buffer. target[N_AXIS] is the signed, absolute target position
+    // in millimeters. Feed rate specifies the speed of the motion. If feed rate is inverted, the feed
+    // rate is taken to mean "frequency" and would complete the operation in 1/feed_rate minutes.
+    uint8_t buffer_line(float *target, plan_line_data_t *pl_data);
 
-// Called periodically by step segment buffer. Mostly used internally by planner.
-uint8_t plan_next_block_index(uint8_t block_index);
+    // Called when the current block is no longer needed. Discards the block and makes the memory
+    // availible for new blocks.
+    void discard_current_block();
 
-// Called by step segment buffer when computing executing block velocity profile.
-float plan_get_exec_block_exit_speed_sqr();
+    // Gets the planner block for the special system motion cases. (Parking/Homing)
+    plan_block_t *get_system_motion_block();
 
-// Called by main program during planner calculations and step segment buffer during initialization.
-float plan_compute_profile_nominal_speed(plan_block_t *block);
+    // Gets the current block. Returns NULL if buffer empty
+    plan_block_t *get_current_block();
 
-// Re-calculates buffered motions profile parameters upon a motion-based override change.
-void plan_update_velocity_profile_parameters();
+    // Called periodically by step segment buffer. Mostly used internally by planner.
+    static uint8_t next_block_index(uint8_t block_index);
 
-// Reset the planner position vector (in steps)
-void plan_sync_position();
+    // Called by step segment buffer when computing executing block velocity profile.
+    float get_exec_block_exit_speed_sqr();
 
-// Reinitialize plan with a partially completed block
-void plan_cycle_reinitialize();
+    // Called by main program during planner calculations and step segment buffer during initialization.
+    static float compute_profile_nominal_speed(plan_block_t *block);
 
-// Returns the number of available blocks are in the planner buffer.
-uint8_t plan_get_block_buffer_available();
+    // Re-calculates buffered motions profile parameters upon a motion-based override change.
+    void update_velocity_profile_parameters();
 
-// Returns the number of active blocks are in the planner buffer.
-// NOTE: Deprecated. Not used unless classic status reports are enabled in config.h
-uint8_t plan_get_block_buffer_count();
+    // Reset the planner position vector (in steps)
+    void sync_position();
 
-// Returns the status of the block ring buffer. True, if buffer is full.
-uint8_t plan_check_full_buffer();
+    // Reinitialize plan with a partially completed block
+    void cycle_reinitialize();
 
-void plan_get_planner_mpos(float *target);
+    // Returns the number of available blocks are in the planner buffer.
+    uint8_t get_block_buffer_available() const;
+
+    // Returns the number of active blocks are in the planner buffer.
+    // NOTE: Deprecated. Not used unless classic status reports are enabled in config.h
+    uint8_t get_block_buffer_count();
+
+    // Returns the status of the block ring buffer. True, if buffer is full.
+    uint8_t check_full_buffer() const;
+};
 
 #ifdef __cplusplus
 }

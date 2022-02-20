@@ -112,13 +112,13 @@ uint8_t read_float(char *line, uint8_t *char_counter, float *float_ptr)
 void delay_sec(float seconds, uint8_t mode) {
 	uint16_t i = (uint16_t)ceilf(1000 / DWELL_TIME_STEP * seconds);
 	while (i-- > 0) {
-		if (sys.abort) { return; }
+		if (grbl.sys.abort) { return; }
 		if (mode == DELAY_MODE_DWELL) {
 			protocol_execute_realtime();
 		} else { // DELAY_MODE_SYS_SUSPEND
 		  // Execute rt_system() only to avoid nesting suspend loops.
 		  protocol_exec_rt_system();
-		  if (sys.suspend & SUSPEND_RESTART_RETRACT) { return; } // Bail, if safety door reopens.
+		  if (grbl.sys.suspend & SUSPEND_RESTART_RETRACT) { return; } // Bail, if safety door reopens.
 		}
         HAL_Delay(DWELL_TIME_STEP); // Delay DWELL_TIME_STEP increment
 	}

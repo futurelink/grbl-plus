@@ -103,7 +103,7 @@ typedef struct {
 typedef struct {
     // Used by the bresenham line algorithm
     uint32_t counter_x,        // Counter variables for the bresenham line tracer
-    counter_y,
+            counter_y,
             counter_z;
 #ifdef STEP_PULSE_DELAY
     uint8_t step_bits;  // Stores out_bits output to complete the step pulse delay
@@ -157,49 +157,71 @@ typedef struct {
 #endif
 } st_prep_t;
 
-void stepper_init();
-void st_wake_up();
-void st_go_idle();
-void st_reset();
-void st_update_plan_block_parameters();
-uint8_t st_next_block_index(uint8_t block_index);
-void st_generate_step_dir_invert_masks();
-void st_tim3_handler();
-void st_tim2_handler();
-
-// Initialize and setup the stepper motor subsystem
-void stepper_init();
-
-// Enable steppers, but cycle does not start unless called by motion control or realtime command.
-void st_wake_up();
-
-// Immediately disables steppers
-void st_go_idle();
-
-// Generate the step and direction port invert masks.
-void st_generate_step_dir_invert_masks();
-
-// Reset the stepper subsystem variables
-void st_reset();
-
-// Changes the run state of the step segment buffer to execute the special parking motion.
-void st_parking_setup_buffer();
-
-// Restores the step segment buffer to the normal run state after a parking motion.
-void st_parking_restore_buffer();
-
-// Reloads step segment buffer. Called continuously by realtime execution system.
-void st_prep_buffer();
-
-// Called by planner_recalculate() when the executing block is updated by the new plan.
-void st_update_plan_block_parameters();
-
-// Called by realtime status reporting if realtime rate reporting is enabled in config.h.
-float st_get_realtime_rate();
-
 extern const PORTPINDEF step_pin_mask[N_AXIS];
 extern const PORTPINDEF direction_pin_mask[N_AXIS];
 extern const PORTPINDEF limit_pin_mask[N_AXIS];
+
+class GRBLSteppers {
+public:
+    // Step and direction port invert masks.
+    PORTPINDEF step_port_invert_mask;
+    PORTPINDEF dir_port_invert_mask;
+
+    st_block_t st_block_buffer[SEGMENT_BUFFER_SIZE-1];
+    segment_t segment_buffer[SEGMENT_BUFFER_SIZE];
+    stepper_t st;
+
+    // Step segment ring buffer indices
+    volatile uint8_t segment_buffer_tail;
+    uint8_t segment_buffer_head;
+    uint8_t segment_next_head;
+
+    // Used to avoid ISR nesting of the "Stepper Driver Interrupt". Should never occur though.
+    volatile uint8_t busy;
+
+    // Pointers for the step segment being prepped from the planner buffer. Accessed only by the
+    // main program. Pointers may be planning segments or planner blocks ahead of what being executed.
+    plan_block_t *pl_block;     // Pointer to the planner block being prepped
+    st_block_t *st_prep_block;  // Pointer to the stepper block data being prepped
+    st_prep_t prep;
+
+    static uint8_t next_block_index(uint8_t block_index);
+
+    void tim3_handler() const;
+    void tim2_handler();
+
+    // Initialize and setup the stepper motor subsystem
+    static void init();
+
+    // Enable steppers, but cycle does not start unless called by motion control or realtime command.
+    void wake_up();
+
+    // Immediately disables steppers
+    void go_idle();
+
+    // Generate the step and direction port invert masks.
+    void generate_step_dir_invert_masks();
+
+    // Reset the stepper subsystem variables
+    void reset();
+
+#ifdef PARKING_ENABLE
+    // Changes the run state of the step segment buffer to execute the special parking motion.
+    void st_parking_setup_buffer();
+
+    // Restores the step segment buffer to the normal run state after a parking motion.
+    void st_parking_restore_buffer();
+#endif
+
+    // Reloads step segment buffer. Called continuously by realtime execution system.
+    void prep_buffer();
+
+    // Called by planner_recalculate() when the executing block is updated by the new plan.
+    void update_plan_block_parameters();
+
+    // Called by realtime status reporting if realtime rate reporting is enabled in config.h.
+    float get_realtime_rate() const;
+};
 
 #endif
 

@@ -21,7 +21,7 @@
 
 #include "grbl.h"
 
-#define M_PI 3.1415926
+//#define M_PI 3.1415926
 
 // Execute linear motion in absolute millimeter coordinates. Feed rate given in millimeters/second
 // unless invert_feed_rate is true. Then the feed_rate means that the motion should be completed in
@@ -34,13 +34,13 @@ void mc_line(float *target, plan_line_data_t *pl_data)
 {
   // If enabled, check for soft limit violations. Placed here all line motions are picked up
   // from everywhere in Grbl.
-  if (bit_istrue(settings.flags,BITFLAG_SOFT_LIMIT_ENABLE)) {
+  if (bit_istrue(grbl.settings.flags(), BITFLAG_SOFT_LIMIT_ENABLE)) {
     // NOTE: Block jog state. Jogging is a special case and soft limits are handled independently.
-    if (sys.state != STATE_JOG) { limits_soft_check(target); }
+    if (grbl.sys.state != STATE_JOG) { limits_soft_check(target); }
   }
 
   // If in check gcode mode, prevent motion by blocking planner. Soft limits still work.
-  if (sys.state == STATE_CHECK_MODE) { return; }
+  if (grbl.sys.state == STATE_CHECK_MODE) { return; }
 
   // NOTE: Backlash compensation may be installed here. It will need direction info to track when
   // to insert a backlash line motion(s) before the intended line motion and will require its own
@@ -60,14 +60,14 @@ void mc_line(float *target, plan_line_data_t *pl_data)
   // Remain in this loop until there is room in the buffer.
   do {
     protocol_execute_realtime(); // Check for any run-time commands
-    if (sys.abort) { return; } // Bail, if system abort.
-    if ( plan_check_full_buffer() ) { protocol_auto_cycle_start(); } // Auto-cycle start when buffer is full.
+    if (grbl.sys.abort) { return; } // Bail, if system abort.
+    if ( grbl.planner.check_full_buffer() ) { protocol_auto_cycle_start(); } // Auto-cycle start when buffer is full.
     else { break; }
   } while (1);
 
   // Plan and queue motion into planner buffer
-	if (plan_buffer_line(target, pl_data) == PLAN_EMPTY_BLOCK) {
-		if (bit_istrue(settings.flags, BITFLAG_LASER_MODE)) {
+	if (grbl.planner.buffer_line(target, pl_data) == PLAN_EMPTY_BLOCK) {
+		if (bit_istrue(grbl.settings.flags(), BITFLAG_LASER_MODE)) {
 			// Correctly set spindle state, if there is a coincident position passed. Forces a buffer
 			// sync while in M3 laser mode only.
 			if (pl_data->condition & PL_COND_FLAG_SPINDLE_CW) {
@@ -108,7 +108,7 @@ void mc_arc(float *target, plan_line_data_t *pl_data, float *position, float *of
   // is desired, i.e. least-squares, midpoint on arc, just change the mm_per_arc_segment calculation.
   // For the intended uses of Grbl, this value shouldn't exceed 2000 for the strictest of cases.
   uint16_t segments = (uint16_t)floorf(fabsf(0.5f*angular_travel*radius) /
-                          sqrtf(settings.arc_tolerance*(2*radius - settings.arc_tolerance)) );
+                          sqrtf(grbl.settings.arc_tolerance()*(2*radius - grbl.settings.arc_tolerance())) );
 
   if (segments) {
     // Multiply inverse feed_rate to compensate for the fact that this movement is approximated
@@ -184,7 +184,7 @@ void mc_arc(float *target, plan_line_data_t *pl_data, float *position, float *of
       mc_line(position, pl_data);
 
       // Bail mid-circle on system abort. Runtime command check already performed by mc_line.
-      if (sys.abort) { return; }
+      if (grbl.sys.abort) { return; }
     }
   }
   // Ensure last segment arrives at target location.
@@ -195,7 +195,7 @@ void mc_arc(float *target, plan_line_data_t *pl_data, float *position, float *of
 // Execute dwell in seconds.
 void mc_dwell(float seconds)
 {
-  if (sys.state == STATE_CHECK_MODE) { return; }
+  if (grbl.sys.state == STATE_CHECK_MODE) { return; }
   protocol_buffer_synchronize();
   delay_sec(seconds, DELAY_MODE_DWELL);
 }
@@ -236,14 +236,14 @@ void mc_homing_cycle(uint8_t cycle_mask) {
     }
 
     protocol_execute_realtime(); // Check for reset and set system abort.
-    if (sys.abort) { return; } // Did not complete. Alarm state set by mc_alarm.
+    if (grbl.sys.abort) { return; } // Did not complete. Alarm state set by mc_alarm.
 
     // Homing cycle complete! Setup system for normal operation.
     // -------------------------------------------------------------------------------------
 
     // Sync gcode parser and planner positions to homed position.
     gc_sync_position();
-    plan_sync_position();
+    grbl.planner.sync_position();
 
     // If hard limits feature enabled, re-enable hard limits pin change register after homing cycle.
     __HAL_GPIO_EXTI_CLEAR_IT((1 << X_LIMIT_BIT) | (1 << Y_LIMIT_BIT) | (1 << Z_LIMIT_BIT));
@@ -256,16 +256,16 @@ void mc_homing_cycle(uint8_t cycle_mask) {
 // NOTE: Upon probe failure, the program will be stopped and placed into ALARM state.
 uint8_t mc_probe_cycle(float *target, plan_line_data_t *pl_data, uint8_t parser_flags) {
     // TODO: Need to update this cycle so it obeys a non-auto cycle start.
-    if (sys.state == STATE_CHECK_MODE) { return(GC_PROBE_CHECK_MODE); }
+    if (grbl.sys.state == STATE_CHECK_MODE) { return(GC_PROBE_CHECK_MODE); }
 
     // Finish all queued commands and empty planner buffer before starting probe cycle.
     protocol_buffer_synchronize();
-    if (sys.abort) { return(GC_PROBE_ABORT); } // Return if system reset has been issued.
+    if (grbl.sys.abort) { return(GC_PROBE_ABORT); } // Return if system reset has been issued.
 
     // Initialize probing control variables
     uint8_t is_probe_away = bit_istrue(parser_flags, GC_PARSER_PROBE_IS_AWAY);
     uint8_t is_no_error = bit_istrue(parser_flags, GC_PARSER_PROBE_IS_NO_ERROR);
-    sys.probe_succeeded = false; // Re-initialize probe history before beginning cycle.
+    grbl.sys.probe_succeeded = false; // Re-initialize probe history before beginning cycle.
     probe_configure_invert_mask(is_probe_away);
 
     // After syncing, check if probe is already triggered. If so, halt and issue alarm.
@@ -281,63 +281,63 @@ uint8_t mc_probe_cycle(float *target, plan_line_data_t *pl_data, uint8_t parser_
     mc_line(target, pl_data);
 
     // Activate the probing state monitor in the stepper module.
-    sys_probe_state = PROBE_ACTIVE;
+    grbl.sys_probe_state = PROBE_ACTIVE;
 
     // Perform probing cycle. Wait here until probe is triggered or motion completes.
     system_set_exec_state_flag(EXEC_CYCLE_START);
     do {
         protocol_execute_realtime();
-        if (sys.abort) { return(GC_PROBE_ABORT); } // Check for system abort
-    } while (sys.state != STATE_IDLE);
+        if (grbl.sys.abort) { return(GC_PROBE_ABORT); } // Check for system abort
+    } while (grbl.sys.state != STATE_IDLE);
 
     // Probing cycle complete!
 
     // Set state variables and error out, if the probe failed and cycle with error is enabled.
-    if (sys_probe_state == PROBE_ACTIVE) {
-        if (is_no_error) { memcpy(sys_probe_position, sys_position, sizeof(sys_position)); }
+    if (grbl.sys_probe_state == PROBE_ACTIVE) {
+        if (is_no_error) { memcpy(grbl.sys_probe_position, grbl.sys_position, sizeof(grbl.sys_position)); }
         else { system_set_exec_alarm(EXEC_ALARM_PROBE_FAIL_CONTACT); }
     } else {
-        sys.probe_succeeded = true; // Indicate to system the probing cycle completed successfully.
+        grbl.sys.probe_succeeded = true; // Indicate to system the probing cycle completed successfully.
     }
-    sys_probe_state = PROBE_OFF; // Ensure probe state monitor is disabled.
+    grbl.sys_probe_state = PROBE_OFF; // Ensure probe state monitor is disabled.
     probe_configure_invert_mask(false); // Re-initialize invert mask.
     protocol_execute_realtime();   // Check and execute run-time commands
 
     // Reset the stepper and planner buffers to remove the remainder of the probe motion.
-    st_reset(); // Reset step segment buffer.
-    plan_reset(); // Reset planner buffer. Zero planner positions. Ensure probing motion is cleared.
-    plan_sync_position(); // Sync planner position to current machine position.
+    grbl.steppers.reset(); // Reset step segment buffer.
+    grbl.planner.reset(); // Reset planner buffer. Zero planner positions. Ensure probing motion is cleared.
+    grbl.planner.sync_position(); // Sync planner position to current machine position.
 
     #ifdef MESSAGE_PROBE_COORDINATES
     // All done! Output the probe position as message.
     report_probe_parameters();
     #endif
 
-    if (sys.probe_succeeded) { return(GC_PROBE_FOUND); } // Successful probe cycle.
+    if (grbl.sys.probe_succeeded) { return(GC_PROBE_FOUND); } // Successful probe cycle.
     else { return(GC_PROBE_FAIL_END); } // Failed to trigger probe within travel. With or without error.
 }
 
 #ifdef PARKING_ENABLE
 	void mc_parking_motion(float *parking_target, plan_line_data_t *pl_data)
 	{
-		if (sys.abort) { return; } // Block during abort.
+		if (grbl.sys.abort) { return; } // Block during abort.
 
 		uint8_t plan_status = plan_buffer_line(parking_target, pl_data);
 
 		if (plan_status) {
-			bit_true(sys.step_control, STEP_CONTROL_EXECUTE_SYS_MOTION);
-			bit_false(sys.step_control, STEP_CONTROL_END_MOTION); // Allow parking motion to execute, if feed hold is active.
+			bit_true(grbl.sys.step_control, STEP_CONTROL_EXECUTE_SYS_MOTION);
+			bit_false(grbl.sys.step_control, STEP_CONTROL_END_MOTION); // Allow parking motion to execute, if feed hold is active.
 			st_parking_setup_buffer(); // Setup step segment buffer for special parking motion case
 			st_prep_buffer();
 			st_wake_up();
 			do {
 				protocol_exec_rt_system();
-				if (sys.abort) { return; }
-			} while (sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION);
+				if (grbl.sys.abort) { return; }
+			} while (grbl.sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION);
 			st_parking_restore_buffer(); // Restore step segment buffer to normal run state.
 		}
 		else {
-			bit_false(sys.step_control, STEP_CONTROL_EXECUTE_SYS_MOTION);
+			bit_false(grbl.sys.step_control, STEP_CONTROL_EXECUTE_SYS_MOTION);
 			protocol_exec_rt_system();
 		}
 
@@ -350,8 +350,8 @@ void mc_override_ctrl_update(uint8_t override_state)
 {
 	// Finish all queued commands before altering override control state
 	protocol_buffer_synchronize();
-	if (sys.abort) { return; }
-	sys.override_ctrl = override_state;
+	if (grbl.sys.abort) { return; }
+	grbl.sys.override_ctrl = override_state;
 }
 #endif
 // Method to ready the system to reset by setting the realtime reset command and killing any
@@ -362,7 +362,7 @@ void mc_override_ctrl_update(uint8_t override_state)
 void mc_reset()
 {
   // Only this function can set the system reset. Helps prevent multiple kill calls.
-  if (bit_isfalse(sys_rt_exec_state, EXEC_RESET)) {
+  if (bit_isfalse(grbl.sys_rt_exec_state, EXEC_RESET)) {
     system_set_exec_state_flag(EXEC_RESET);
 
     // Kill spindle and coolant.
@@ -373,13 +373,13 @@ void mc_reset()
     // NOTE: If steppers are kept enabled via the step idle delay setting, this also keeps
     // the steppers enabled by avoiding the go_idle call altogether, unless the motion state is
     // violated, by which, all bets are off.
-    if ((sys.state & (STATE_CYCLE | STATE_HOMING | STATE_JOG)) ||
-    		(sys.step_control & (STEP_CONTROL_EXECUTE_HOLD | STEP_CONTROL_EXECUTE_SYS_MOTION))) {
-      if (sys.state == STATE_HOMING) {
-        if (!sys_rt_exec_alarm) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_RESET); }
-      }
-      else { system_set_exec_alarm(EXEC_ALARM_ABORT_CYCLE); }
-      st_go_idle(); // Force kill steppers. Position has likely been lost.
+    if ((grbl.sys.state & (STATE_CYCLE | STATE_HOMING | STATE_JOG)) ||
+    		(grbl.sys.step_control & (STEP_CONTROL_EXECUTE_HOLD | STEP_CONTROL_EXECUTE_SYS_MOTION))) {
+          if (grbl.sys.state == STATE_HOMING) {
+            if (!grbl.sys_rt_exec_alarm) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_RESET); }
+        }
+        else { system_set_exec_alarm(EXEC_ALARM_ABORT_CYCLE); }
+        grbl.steppers.go_idle(); // Force kill steppers. Position has likely been lost.
     }
   }
 }

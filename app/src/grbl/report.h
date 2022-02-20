@@ -104,7 +104,7 @@ void report_init_message();
 void report_grbl_help();
 
 // Prints Grbl global settings
-void report_grbl_settings();
+void report_grbl_settings(GRBLSettings *settings);
 
 // Prints an echo of the pre-parsed line received right before execution.
 void report_echo_line_received(char *line);

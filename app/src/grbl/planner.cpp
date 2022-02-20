@@ -5,6 +5,7 @@
   Copyright (c) 2011-2016 Sungeun K. Jeon for Gnea Research LLC
   Copyright (c) 2009-2011 Simen Svale Skogsrud
   Copyright (c) 2011 Jens Geisler
+  Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -22,24 +23,8 @@
 
 #include "grbl.h"
 
-static plan_block_t block_buffer[BLOCK_BUFFER_SIZE];  // A ring buffer for motion instructions
-static uint8_t block_buffer_tail;     // Index of the block to process now
-static uint8_t block_buffer_head;     // Index of the next block to be pushed
-static uint8_t next_buffer_head;      // Index of the next buffer head
-static uint8_t block_buffer_planned;  // Index of the optimally planned block
-
-// Define planner variables
-typedef struct {
-  int32_t position[N_AXIS];          // The planner position of the tool in absolute steps. Kept separate
-                                     // from g-code position for movements requiring multiple line motions,
-                                     // i.e. arcs, canned cycles, and backlash compensation.
-  float previous_unit_vec[N_AXIS];   // Unit vector of previous path line segment
-  float previous_nominal_speed;  // Nominal speed of previous path line segment
-} planner_t;
-static planner_t pl;
-
 // Returns the index of the next block in the ring buffer. Also called by stepper segment buffer.
-uint8_t plan_next_block_index(uint8_t block_index)
+uint8_t GRBLPlanner::next_block_index(uint8_t block_index)
 {
   block_index++;
   if (block_index == BLOCK_BUFFER_SIZE) { block_index = 0; }
@@ -47,8 +32,7 @@ uint8_t plan_next_block_index(uint8_t block_index)
 }
 
 // Returns the index of the previous block in the ring buffer
-static uint8_t plan_prev_block_index(uint8_t block_index)
-{
+uint8_t GRBLPlanner::prev_block_index(uint8_t block_index) {
   if (block_index == 0) { block_index = BLOCK_BUFFER_SIZE; }
   block_index--;
   return(block_index);
@@ -120,10 +104,9 @@ static uint8_t plan_prev_block_index(uint8_t block_index)
   ARM versions should have enough memory and speed for look-ahead blocks numbering up to a hundred or more.
 
 */
-static void planner_recalculate()
-{
+void GRBLPlanner::recalculate() {
   // Initialize block index to the last block in the planner buffer.
-  uint8_t block_index = plan_prev_block_index(block_buffer_head);
+  uint8_t block_index = prev_block_index(block_buffer_head);
 
   // Bail. Can't do anything with one only one plan-able block.
   if (block_index == block_buffer_planned) { return; }
@@ -138,18 +121,18 @@ static void planner_recalculate()
   // Calculate maximum entry speed for last block in buffer, where the exit speed is always zero.
   current->entry_speed_sqr = min( current->max_entry_speed_sqr, 2*current->acceleration*current->millimeters);
 
-  block_index = plan_prev_block_index(block_index);
+  block_index = prev_block_index(block_index);
   if (block_index == block_buffer_planned) { // Only two plannable blocks in buffer. Reverse pass complete.
     // Check if the first block is the tail. If so, notify stepper to update its current parameters.
-    if (block_index == block_buffer_tail) { st_update_plan_block_parameters(); }
+    if (block_index == block_buffer_tail) { grbl.steppers.update_plan_block_parameters(); }
   } else { // Three or more plan-able blocks
     while (block_index != block_buffer_planned) {
       next = current;
       current = &block_buffer[block_index];
-      block_index = plan_prev_block_index(block_index);
+      block_index = prev_block_index(block_index);
 
       // Check if next block is the tail block(=planned block). If so, update current stepper parameters.
-      if (block_index == block_buffer_tail) { st_update_plan_block_parameters(); }
+      if (block_index == block_buffer_tail) { grbl.steppers.update_plan_block_parameters(); }
 
       // Compute maximum entry speed decelerating over the current block from its exit speed.
       if (current->entry_speed_sqr != current->max_entry_speed_sqr) {
@@ -166,7 +149,7 @@ static void planner_recalculate()
   // Forward Pass: Forward plan the acceleration curve from the planned pointer onward.
   // Also scans for optimal plan breakpoints and appropriately updates the planned pointer.
   next = &block_buffer[block_buffer_planned]; // Begin at buffer planned pointer
-  block_index = plan_next_block_index(block_buffer_planned);
+  block_index = next_block_index(block_buffer_planned);
   while (block_index != block_buffer_head) {
     current = next;
     next = &block_buffer[block_index];
@@ -188,31 +171,26 @@ static void planner_recalculate()
     // buffer and a maximum entry speed or two maximum entry speeds, every block in between
     // cannot logically be further improved. Hence, we don't have to recompute them anymore.
     if (next->entry_speed_sqr == next->max_entry_speed_sqr) { block_buffer_planned = block_index; }
-    block_index = plan_next_block_index( block_index );
+    block_index = next_block_index( block_index );
   }
 }
 
 
-void plan_reset()
-{
+void GRBLPlanner::reset() {
   memset(&pl, 0, sizeof(planner_t)); // Clear planner struct
-  plan_reset_buffer();
+  reset_buffer();
 }
 
-
-void plan_reset_buffer()
-{
+void GRBLPlanner::reset_buffer() {
   block_buffer_tail = 0;
   block_buffer_head = 0; // Empty = tail
   next_buffer_head = 1; // plan_next_block_index(block_buffer_head)
   block_buffer_planned = 0; // = block_buffer_tail;
 }
 
-
-void plan_discard_current_block()
-{
+void GRBLPlanner::discard_current_block() {
   if (block_buffer_head != block_buffer_tail) { // Discard non-empty buffer.
-    uint8_t block_index = plan_next_block_index( block_buffer_tail );
+    uint8_t block_index = next_block_index( block_buffer_tail );
     // Push block_buffer_planned pointer, if encountered.
     if (block_buffer_tail == block_buffer_planned) { block_buffer_planned = block_index; }
     block_buffer_tail = block_index;
@@ -221,31 +199,26 @@ void plan_discard_current_block()
 
 
 // Returns address of planner buffer block used by system motions. Called by segment generator.
-plan_block_t *plan_get_system_motion_block()
-{
+plan_block_t *GRBLPlanner::get_system_motion_block() {
   return(&block_buffer[block_buffer_head]);
 }
 
-
 // Returns address of first planner block, if available. Called by various main program functions.
-plan_block_t *plan_get_current_block()
-{
-  if (block_buffer_head == block_buffer_tail) { return(NULL); } // Buffer empty
+plan_block_t *GRBLPlanner::get_current_block() {
+  if (block_buffer_head == block_buffer_tail) { return(nullptr); } // Buffer empty
   return(&block_buffer[block_buffer_tail]);
 }
 
 
-float plan_get_exec_block_exit_speed_sqr()
-{
-  uint8_t block_index = plan_next_block_index(block_buffer_tail);
+float GRBLPlanner::get_exec_block_exit_speed_sqr() {
+  uint8_t block_index = next_block_index(block_buffer_tail);
   if (block_index == block_buffer_head) { return( 0.0 ); }
   return( block_buffer[block_index].entry_speed_sqr );
 }
 
 
 // Returns the availability status of the block ring buffer. True, if full.
-uint8_t plan_check_full_buffer()
-{
+uint8_t GRBLPlanner::check_full_buffer() const {
   if (block_buffer_tail == next_buffer_head) { return(true); }
   return(false);
 }
@@ -253,12 +226,11 @@ uint8_t plan_check_full_buffer()
 
 // Computes and returns block nominal speed based on running condition and override values.
 // NOTE: All system motion commands, such as homing/parking, are not subject to overrides.
-float plan_compute_profile_nominal_speed(plan_block_t *block)
-{
+float GRBLPlanner::compute_profile_nominal_speed(plan_block_t *block) {
   float nominal_speed = block->programmed_rate;
-  if (block->condition & PL_COND_FLAG_RAPID_MOTION) { nominal_speed *= (0.01f*sys.r_override); }
+  if (block->condition & PL_COND_FLAG_RAPID_MOTION) { nominal_speed *= (0.01f * grbl.sys.r_override); }
   else {
-    if (!(block->condition & PL_COND_FLAG_NO_FEED_OVERRIDE)) { nominal_speed *= (0.01f*sys.f_override); }
+    if (!(block->condition & PL_COND_FLAG_NO_FEED_OVERRIDE)) { nominal_speed *= (0.01f * grbl.sys.f_override); }
     if (nominal_speed > block->rapid_rate) { nominal_speed = block->rapid_rate; }
   }
   if (nominal_speed > MINIMUM_FEED_RATE) { return(nominal_speed); }
@@ -268,7 +240,7 @@ float plan_compute_profile_nominal_speed(plan_block_t *block)
 
 // Computes and updates the max entry speed (sqr) of the block, based on the minimum of the junction's
 // previous and current nominal speeds and max junction speed.
-static void plan_compute_profile_parameters(plan_block_t *block, float nominal_speed, float prev_nominal_speed)
+void GRBLPlanner::compute_profile_parameters(plan_block_t *block, float nominal_speed, float prev_nominal_speed)
 {
   // Compute the junction maximum entry based on the minimum of the junction speed and neighboring nominal speeds.
   if (nominal_speed > prev_nominal_speed) { block->max_entry_speed_sqr = prev_nominal_speed*prev_nominal_speed; }
@@ -278,22 +250,20 @@ static void plan_compute_profile_parameters(plan_block_t *block, float nominal_s
 
 
 // Re-calculates buffered motions profile parameters upon a motion-based override change.
-void plan_update_velocity_profile_parameters()
-{
+void GRBLPlanner::update_velocity_profile_parameters() {
   uint8_t block_index = block_buffer_tail;
   plan_block_t *block;
   float nominal_speed;
   float prev_nominal_speed = SOME_LARGE_VALUE; // Set high for first block nominal speed calculation.
   while (block_index != block_buffer_head) {
     block = &block_buffer[block_index];
-    nominal_speed = plan_compute_profile_nominal_speed(block);
-    plan_compute_profile_parameters(block, nominal_speed, prev_nominal_speed);
+    nominal_speed = compute_profile_nominal_speed(block);
+    compute_profile_parameters(block, nominal_speed, prev_nominal_speed);
     prev_nominal_speed = nominal_speed;
-    block_index = plan_next_block_index(block_index);
+    block_index = next_block_index(block_index);
   }
   pl.previous_nominal_speed = prev_nominal_speed; // Update prev nominal speed for next incoming block.
 }
-
 
 /* Add a new linear movement to the buffer. target[N_AXIS] is the signed, absolute target position
    in millimeters. Feed rate specifies the speed of the motion. If feed rate is inverted, the feed
@@ -309,8 +279,7 @@ void plan_update_velocity_profile_parameters()
    head. It avoids changing the planner state and preserves the buffer to ensure subsequent gcode
    motions are still planned correctly, while the stepper module only points to the block buffer head
    to execute the special system motion. */
-uint8_t plan_buffer_line(float *target, plan_line_data_t *pl_data)
-{
+uint8_t GRBLPlanner::buffer_line(float *target, plan_line_data_t *pl_data) {
   // Prepare and initialize new block. Copy relevant pl_data for block execution.
   plan_block_t *block = &block_buffer[block_buffer_head];
   memset(block,0,sizeof(plan_block_t)); // Zero all block values.
@@ -334,7 +303,7 @@ uint8_t plan_buffer_line(float *target, plan_line_data_t *pl_data)
     position_steps[Y_AXIS] = system_convert_corexy_to_y_axis_steps(sys_position);
     position_steps[Z_AXIS] = sys_position[Z_AXIS];
 #else
-    memcpy(position_steps, sys_position, sizeof(sys_position));
+    memcpy(position_steps, grbl.sys_position, sizeof(grbl.sys_position));
 #endif
   }
   else { memcpy(position_steps, pl.position, sizeof(pl.position)); }
@@ -364,10 +333,10 @@ uint8_t plan_buffer_line(float *target, plan_line_data_t *pl_data)
         delta_mm = (target_steps[idx] - position_steps[idx])/settings.steps_per_mm[idx];
       }
     #else
-      target_steps[idx] = lroundf(target[idx]*settings.steps_per_mm[idx]);
+      target_steps[idx] = lroundf(target[idx]*grbl.settings.steps_per_mm(idx));
       block->steps[idx] = abs(target_steps[idx]-position_steps[idx]);
       block->step_event_count = max(block->step_event_count, block->steps[idx]);
-      delta_mm = (target_steps[idx] - position_steps[idx])/settings.steps_per_mm[idx];
+      delta_mm = (target_steps[idx] - position_steps[idx]) / grbl.settings.steps_per_mm(idx);
 	  #endif
     unit_vec[idx] = delta_mm; // Store unit vector numerator
 
@@ -383,8 +352,8 @@ uint8_t plan_buffer_line(float *target, plan_line_data_t *pl_data)
   // NOTE: This calculation assumes all axes are orthogonal (Cartesian) and works with ABC-axes,
   // if they are also orthogonal/independent. Operates on the absolute value of the unit vector.
   block->millimeters = convert_delta_vector_to_unit_vector(unit_vec);
-  block->acceleration = limit_value_by_axis_maximum(settings.acceleration, unit_vec);
-  block->rapid_rate = limit_value_by_axis_maximum(settings.max_rate, unit_vec);
+  block->acceleration = limit_value_by_axis_maximum(grbl.settings.accelerations(), unit_vec);
+  block->rapid_rate = limit_value_by_axis_maximum(grbl.settings.max_rates(), unit_vec);
 
   // Store programmed rate.
   if (block->condition & PL_COND_FLAG_RAPID_MOTION) { block->programmed_rate = block->rapid_rate; }
@@ -441,18 +410,18 @@ uint8_t plan_buffer_line(float *target, plan_line_data_t *pl_data)
         block->max_junction_speed_sqr = SOME_LARGE_VALUE;
       } else {
         convert_delta_vector_to_unit_vector(junction_unit_vec);
-        float junction_acceleration = limit_value_by_axis_maximum(settings.acceleration, junction_unit_vec);
+        float junction_acceleration = limit_value_by_axis_maximum(grbl.settings.accelerations(), junction_unit_vec);
         float sin_theta_d2 = sqrtf(0.5f*(1.0f-junction_cos_theta)); // Trig half angle identity. Always positive.
         block->max_junction_speed_sqr = max( MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED,
-                       (junction_acceleration * settings.junction_deviation * sin_theta_d2)/(1.0f-sin_theta_d2) );
+                       (junction_acceleration * grbl.settings.junction_deviation() * sin_theta_d2)/(1.0f-sin_theta_d2) );
       }
     }
   }
 
   // Block system motion from updating this data to ensure next g-code motion is computed correctly.
   if (!(block->condition & PL_COND_FLAG_SYSTEM_MOTION)) {
-    float nominal_speed = plan_compute_profile_nominal_speed(block);
-    plan_compute_profile_parameters(block, nominal_speed, pl.previous_nominal_speed);
+    float nominal_speed = compute_profile_nominal_speed(block);
+    compute_profile_parameters(block, nominal_speed, pl.previous_nominal_speed);
     pl.previous_nominal_speed = nominal_speed;
 
     // Update previous path unit_vector and planner position.
@@ -461,18 +430,16 @@ uint8_t plan_buffer_line(float *target, plan_line_data_t *pl_data)
 
     // New block is all set. Update buffer head and next buffer head indices.
     block_buffer_head = next_buffer_head;
-    next_buffer_head = plan_next_block_index(block_buffer_head);
+    next_buffer_head = next_block_index(block_buffer_head);
 
     // Finish up by recalculating the plan with the new block.
-    planner_recalculate();
+    recalculate();
   }
   return(PLAN_OK);
 }
 
-
 // Reset the planner position vectors. Called by the system abort/initialization routine.
-void plan_sync_position()
-{
+void GRBLPlanner::sync_position() {
   // TODO: For motor configurations not in the same coordinate frame as the machine position,
   // this function needs to be updated to accomodate the difference.
   uint8_t idx;
@@ -486,35 +453,29 @@ void plan_sync_position()
         pl.position[idx] = sys_position[idx];
       }
     #else
-      pl.position[idx] = sys_position[idx];
+      pl.position[idx] = grbl.sys_position[idx];
     #endif
   }
 }
 
-
 // Returns the number of available blocks are in the planner buffer.
-uint8_t plan_get_block_buffer_available()
-{
+uint8_t GRBLPlanner::get_block_buffer_available() const {
   if (block_buffer_head >= block_buffer_tail) { return((BLOCK_BUFFER_SIZE-1)-(block_buffer_head-block_buffer_tail)); }
   return((block_buffer_tail-block_buffer_head-1));
 }
 
-
 // Returns the number of active blocks are in the planner buffer.
 // NOTE: Deprecated. Not used unless classic status reports are enabled in config.h
-uint8_t plan_get_block_buffer_count()
-{
+uint8_t GRBLPlanner::get_block_buffer_count() {
   if (block_buffer_head >= block_buffer_tail) { return(block_buffer_head-block_buffer_tail); }
   return(BLOCK_BUFFER_SIZE - (block_buffer_tail-block_buffer_head));
 }
 
-
 // Re-initialize buffer plan with a partially completed block, assumed to exist at the buffer tail.
 // Called after a steppers have come to a complete stop for a feed hold and the cycle is stopped.
-void plan_cycle_reinitialize()
-{
-  // Re-plan from a complete stop. Reset planner entry speeds and buffer planned pointer.
-  st_update_plan_block_parameters();
-  block_buffer_planned = block_buffer_tail;
-  planner_recalculate();
+void GRBLPlanner::cycle_reinitialize() {
+    // Re-plan from a complete stop. Reset planner entry speeds and buffer planned pointer.
+    grbl.steppers.update_plan_block_parameters();
+    block_buffer_planned = block_buffer_tail;
+    recalculate();
 }

@@ -207,7 +207,7 @@ void stm32_limits_init() {
     gpio.Pull = GPIO_PULLUP;
     HAL_GPIO_Init(LIMIT_PORT, &gpio);
 
-    if (bit_istrue(settings.flags, BITFLAG_HARD_LIMIT_ENABLE)) {
+    if (bit_istrue(grbl.settings.flags(), BITFLAG_HARD_LIMIT_ENABLE)) {
         EXTI_HandleTypeDef exti;
         exti.Line = LIMIT_MASK;
 

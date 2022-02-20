@@ -157,7 +157,7 @@ void printFloat(float n, uint8_t decimal_places)
 //  - CoordValue: Handles all position or coordinate values in inches or mm reporting.
 //  - RateValue: Handles feed rate and current velocity in inches or mm reporting.
 void printFloat_CoordValue(float n) {
-  if (bit_istrue(settings.flags,BITFLAG_REPORT_INCHES)) {
+  if (bit_istrue(grbl.settings.flags(),BITFLAG_REPORT_INCHES)) {
     printFloat(n*INCH_PER_MM,N_DECIMAL_COORDVALUE_INCH);
   } else {
     printFloat(n,N_DECIMAL_COORDVALUE_MM);
@@ -165,7 +165,7 @@ void printFloat_CoordValue(float n) {
 }
 
 void printFloat_RateValue(float n) {
-  if (bit_istrue(settings.flags,BITFLAG_REPORT_INCHES)) {
+  if (bit_istrue(grbl.settings.flags(),BITFLAG_REPORT_INCHES)) {
     printFloat(n*INCH_PER_MM,N_DECIMAL_RATEVALUE_INCH);
   } else {
     printFloat(n,N_DECIMAL_RATEVALUE_MM);

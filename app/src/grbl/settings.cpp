@@ -21,10 +21,8 @@
 
 #include "grbl.h"
 
-settings_t settings;
-
 // Method to store startup lines into EEPROM
-void settings_store_startup_line(uint8_t n, char *line) {
+void GRBLSettings::store_startup_line(uint8_t n, char *line) {
     #ifdef FORCE_BUFFER_SYNC_DURING_EEPROM_WRITE
         protocol_buffer_synchronize(); // A startup line may contain a motion and be executing.
     #endif
@@ -34,13 +32,13 @@ void settings_store_startup_line(uint8_t n, char *line) {
 
 // Method to store build info into EEPROM
 // NOTE: This function can only be called in IDLE state.
-void settings_store_build_info(char *line) {
+void GRBLSettings::store_build_info(char *line) {
     // Build info can only be stored when state is IDLE.
     memcpy_to_eeprom_with_checksum(EEPROM_ADDR_BUILD_INFO,(char*)line, LINE_BUFFER_SIZE);
 }
 
 // Method to store coord data parameters into EEPROM
-void settings_write_coord_data(uint8_t coord_select, float *coord_data) {
+void GRBLSettings::write_coord_data(uint8_t coord_select, float *coord_data) {
     #ifdef FORCE_BUFFER_SYNC_DURING_EEPROM_WRITE
         protocol_buffer_synchronize();
     #endif
@@ -50,13 +48,13 @@ void settings_write_coord_data(uint8_t coord_select, float *coord_data) {
 
 // Method to store Grbl global settings struct and version number into EEPROM
 // NOTE: This function can only be called in IDLE state.
-void write_global_settings() {
+void GRBLSettings::write_global() {
     eeprom_put_char(0, SETTINGS_VERSION);
     memcpy_to_eeprom_with_checksum(EEPROM_ADDR_GLOBAL, (char*)&settings, sizeof(settings_t));
 }
 
 // Method to restore EEPROM-saved Grbl global settings back to defaults.
-void settings_restore(uint8_t restore_flag) {
+void GRBLSettings::restore(uint8_t restore_flag) {
     if (restore_flag & SETTINGS_RESTORE_DEFAULTS) {
         settings.pulse_microseconds = DEFAULT_STEP_PULSE_MICROSECONDS;
         settings.stepper_idle_lock_time = DEFAULT_STEPPER_IDLE_LOCK_TIME;
@@ -76,14 +74,30 @@ void settings_restore(uint8_t restore_flag) {
         settings.homing_pulloff = DEFAULT_HOMING_PULLOFF;
 
         settings.flags = 0;
-        if (DEFAULT_REPORT_INCHES) { settings.flags |= BITFLAG_REPORT_INCHES; }
-        if (DEFAULT_LASER_MODE) { settings.flags |= BITFLAG_LASER_MODE; }
-        if (DEFAULT_INVERT_ST_ENABLE) { settings.flags |= BITFLAG_INVERT_ST_ENABLE; }
-        if (DEFAULT_HARD_LIMIT_ENABLE) { settings.flags |= BITFLAG_HARD_LIMIT_ENABLE; }
-        if (DEFAULT_HOMING_ENABLE) { settings.flags |= BITFLAG_HOMING_ENABLE; }
-        if (DEFAULT_SOFT_LIMIT_ENABLE) { settings.flags |= BITFLAG_SOFT_LIMIT_ENABLE; }
-        if (DEFAULT_INVERT_LIMIT_PINS) { settings.flags |= BITFLAG_INVERT_LIMIT_PINS; }
-        if (DEFAULT_INVERT_PROBE_PIN) { settings.flags |= BITFLAG_INVERT_PROBE_PIN; }
+        #ifdef DEFAULT_REPORT_INCHES
+        settings.flags |= BITFLAG_REPORT_INCHES;
+        #endif
+        #ifdef DEFAULT_LASER_MODE
+        settings.flags |= BITFLAG_LASER_MODE;
+        #endif
+        #ifdef DEFAULT_INVERT_ST_ENABLE
+        settings.flags |= BITFLAG_INVERT_ST_ENABLE;
+        #endif
+        #ifdef DEFAULT_HARD_LIMIT_ENABLE
+        settings.flags |= BITFLAG_HARD_LIMIT_ENABLE;
+        #endif
+        #ifdef DEFAULT_HOMING_ENABLE
+        settings.flags |= BITFLAG_HOMING_ENABLE;
+        #endif
+        #ifdef DEFAULT_SOFT_LIMIT_ENABLE
+        settings.flags |= BITFLAG_SOFT_LIMIT_ENABLE;
+        #endif
+        #ifdef DEFAULT_INVERT_LIMIT_PINS
+        settings.flags |= BITFLAG_INVERT_LIMIT_PINS;
+        #endif
+        #ifdef DEFAULT_INVERT_PROBE_PIN
+        settings.flags |= BITFLAG_INVERT_PROBE_PIN;
+        #endif
 
         settings.steps_per_mm[X_AXIS] = DEFAULT_X_STEPS_PER_MM;
         settings.steps_per_mm[Y_AXIS] = DEFAULT_Y_STEPS_PER_MM;
@@ -98,14 +112,14 @@ void settings_restore(uint8_t restore_flag) {
         settings.max_travel[Y_AXIS] = (-DEFAULT_Y_MAX_TRAVEL);
         settings.max_travel[Z_AXIS] = (-DEFAULT_Z_MAX_TRAVEL);
 
-        write_global_settings();
+        write_global();
     }
 
     if (restore_flag & SETTINGS_RESTORE_PARAMETERS) {
         uint8_t idx;
         float coord_data[N_AXIS];
         memset(&coord_data, 0, sizeof(coord_data));
-        for (idx=0; idx <= SETTING_INDEX_NCOORD; idx++) { settings_write_coord_data(idx, coord_data); }
+        for (idx=0; idx <= SETTING_INDEX_NCOORD; idx++) { write_coord_data(idx, coord_data); }
     }
 
     if (restore_flag & SETTINGS_RESTORE_STARTUP_LINES) {
@@ -127,23 +141,23 @@ void settings_restore(uint8_t restore_flag) {
 
 
 // Reads startup line from EEPROM. Updated pointed line string data.
-uint8_t settings_read_startup_line(uint8_t n, char *line) {
+uint8_t GRBLSettings::read_startup_line(uint8_t n, char *line) {
     uint32_t addr = n*(LINE_BUFFER_SIZE+1)+EEPROM_ADDR_STARTUP_BLOCK;
     if (!(memcpy_from_eeprom_with_checksum((char*)line, addr, LINE_BUFFER_SIZE))) {
         // Reset line with default value
         line[0] = 0; // Empty line
-        settings_store_startup_line(n, line);
+        store_startup_line(n, line);
         return (false);
     }
     return (true);
 }
 
 // Reads startup line from EEPROM. Updated pointed line string data.
-uint8_t settings_read_build_info(char *line) {
+uint8_t GRBLSettings::read_build_info(char *line) {
     if (!(memcpy_from_eeprom_with_checksum((char*)line, EEPROM_ADDR_BUILD_INFO, LINE_BUFFER_SIZE))) {
         // Reset line with default value
         line[0] = 0; // Empty line
-        settings_store_build_info(line);
+        store_build_info(line);
         return (false);
     }
     return (true);
@@ -151,14 +165,14 @@ uint8_t settings_read_build_info(char *line) {
 
 
 // Read selected coordinate data from EEPROM. Updates pointed coord_data value.
-uint8_t settings_read_coord_data(uint8_t coord_select, float *coord_data) {
+uint8_t GRBLSettings::read_coord_data(uint8_t coord_select, float *coord_data) {
     uint32_t addr = coord_select*(sizeof(float)*N_AXIS+1) + EEPROM_ADDR_PARAMETERS;
     if (!(memcpy_from_eeprom_with_checksum((char*)coord_data, addr, sizeof(float)*N_AXIS))) {
         // Reset with default zero vector
 		coord_data[X_AXIS] = 0.0f;
 		coord_data[Y_AXIS] = 0.0f;
 		coord_data[Z_AXIS] = 0.0f;
-		settings_write_coord_data(coord_select,coord_data);
+		write_coord_data(coord_select,coord_data);
         return (false);
     }
     return (true);
@@ -166,7 +180,7 @@ uint8_t settings_read_coord_data(uint8_t coord_select, float *coord_data) {
 
 
 // Reads Grbl global settings struct from EEPROM.
-uint8_t read_global_settings() {
+uint8_t GRBLSettings::read_global() {
     // Check version-byte of eeprom
     uint8_t version = eeprom_get_char(0);
     if (version == SETTINGS_VERSION) {
@@ -183,7 +197,7 @@ uint8_t read_global_settings() {
 
 
 // A helper method to set settings from command line
-uint8_t settings_store_global_setting(uint8_t parameter, float value) {
+uint8_t GRBLSettings::store_global(uint8_t parameter, float value) {
     if (value < 0.0f) { return(STATUS_NEGATIVE_VALUE); }
     if (parameter >= AXIS_SETTINGS_START_VAL) {
         // Store axis configuration. Axis numbering sequence set by AXIS_SETTING defines.
@@ -208,6 +222,7 @@ uint8_t settings_store_global_setting(uint8_t parameter, float value) {
                         break;
                     case 2: settings.acceleration[parameter] = value*60*60; break; // Convert to mm/min^2 for grbl internal use.
                     case 3: settings.max_travel[parameter] = -value; break;  // Store as negative for grbl internal use.
+                    default: break;
                 }
                 break; // Exit while-loop after setting has been configured and proceed to the EEPROM write call.
             } else {
@@ -227,11 +242,11 @@ uint8_t settings_store_global_setting(uint8_t parameter, float value) {
             case 1: settings.stepper_idle_lock_time = int_value; break;
             case 2:
                 settings.step_invert_mask = int_value;
-                st_generate_step_dir_invert_masks(); // Regenerate step and direction port invert masks.
+                grbl.steppers.generate_step_dir_invert_masks(); // Regenerate step and direction port invert masks.
                 break;
             case 3:
                 settings.dir_invert_mask = int_value;
-                st_generate_step_dir_invert_masks(); // Regenerate step and direction port invert masks.
+                grbl.steppers.generate_step_dir_invert_masks(); // Regenerate step and direction port invert masks.
                 break;
             case 4: // Reset to ensure change. Immediate re-init may cause problems.
                 if (int_value) { settings.flags |= BITFLAG_INVERT_ST_ENABLE; }
@@ -292,16 +307,16 @@ uint8_t settings_store_global_setting(uint8_t parameter, float value) {
             }
     }
 
-    write_global_settings();
+    write_global();
 
     return(STATUS_OK);
 }
 
 // Initialize the config subsystem
-void settings_init() {
-    if(!read_global_settings()) {
+void GRBLSettings::init() {
+    if(!read_global()) {
         report_status_message(STATUS_SETTING_READ_FAIL);
-        settings_restore(SETTINGS_RESTORE_ALL); // Force restore all EEPROM data.
-        report_grbl_settings();
+        restore(SETTINGS_RESTORE_ALL); // Force restore all EEPROM data.
+        report_grbl_settings(&grbl.settings);
     }
 }

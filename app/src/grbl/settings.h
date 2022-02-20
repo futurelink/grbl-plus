@@ -77,7 +77,6 @@ extern "C" {
 #define AXIS_SETTINGS_START_VAL  100 // NOTE: Reserving settings values >= 100 for axis settings. Up to 255.
 #define AXIS_SETTINGS_INCREMENT  10  // Must be greater than the number of axis settings
 
-// Global persistent settings (Stored from byte EEPROM_ADDR_GLOBAL onwards)
 typedef struct {
     // Axis settings
     float steps_per_mm[N_AXIS];
@@ -105,34 +104,73 @@ typedef struct {
     uint16_t homing_debounce_delay;
     float homing_pulloff;
 } settings_t;
-extern settings_t settings;
 
-// Initialize the configuration subsystem (load settings from EEPROM)
-void settings_init();
+class GRBLSettings {
+private:
+    settings_t settings;
 
-// Helper function to clear and restore EEPROM defaults
-void settings_restore(uint8_t restore_flag);
+public:
 
-// A helper method to set new settings from command line
-uint8_t settings_store_global_setting(uint8_t parameter, float value);
+    // Axis settings
+    float steps_per_mm(uint8_t axis) { return settings.steps_per_mm[axis]; }
+    float max_rate(uint8_t axis) { return settings.max_rate[axis]; }
+    float acceleration(uint8_t axis) { return settings.acceleration[axis]; }
+    float max_travel(uint8_t axis) { return settings.max_travel[axis]; }
 
-// Stores the protocol line variable as a startup line in EEPROM
-void settings_store_startup_line(uint8_t n, char *line);
+    float *accelerations() { return settings.acceleration; }
+    float *max_rates() { return settings.max_rate; }
 
-// Reads an EEPROM startup line to the protocol line variable
-uint8_t settings_read_startup_line(uint8_t n, char *line);
+    // Remaining Grbl settings
+    uint8_t pulse_microseconds() { return settings.pulse_microseconds; }
+    uint8_t step_invert_mask() { return settings.step_invert_mask; }
+    uint8_t dir_invert_mask() { return settings.dir_invert_mask; }
+    uint8_t stepper_idle_lock_time() { return settings.stepper_idle_lock_time; }
+    uint8_t status_report_mask() { return settings.status_report_mask; }
+    float junction_deviation() { return settings.junction_deviation; }
+    float arc_tolerance() { return settings.arc_tolerance; }
 
-// Stores build info user-defined string
-void settings_store_build_info(char *line);
+    float rpm_max() { return settings.rpm_max; }
+    float rpm_min() { return settings.rpm_min; }
 
-// Reads build info user-defined string
-uint8_t settings_read_build_info(char *line);
+    uint8_t flags() { return settings.flags; }
 
-// Writes selected coordinate data to EEPROM
-void settings_write_coord_data(uint8_t coord_select, float *coord_data);
+    uint8_t homing_dir_mask(){ return settings.homing_dir_mask; }
+    float homing_feed_rate(){ return settings.homing_feed_rate; }
+    float homing_seek_rate(){ return settings.homing_seek_rate; }
+    uint16_t homing_debounce_delay(){ return settings.homing_debounce_delay; }
+    float homing_pulloff(){ return settings.homing_pulloff; }
 
-// Reads selected coordinate data from EEPROM
-uint8_t settings_read_coord_data(uint8_t coord_select, float *coord_data);
+    // Initialize the configuration subsystem (load settings from EEPROM)
+    void init();
+
+    // Helper function to clear and restore EEPROM defaults
+    void restore(uint8_t restore_flag);
+
+    // A helper method to set new settings from command line
+    uint8_t store_global(uint8_t parameter, float value);
+
+    void write_global();
+
+    uint8_t read_global();
+
+    // Stores the protocol line variable as a startup line in EEPROM
+    static void store_startup_line(uint8_t n, char *line);
+
+    // Reads an EEPROM startup line to the protocol line variable
+    static uint8_t read_startup_line(uint8_t n, char *line);
+
+    // Stores build info user-defined string
+    static void store_build_info(char *line);
+
+    // Reads build info user-defined string
+    static uint8_t read_build_info(char *line);
+
+    // Writes selected coordinate data to EEPROM
+    static void write_coord_data(uint8_t coord_select, float *coord_data);
+
+    // Reads selected coordinate data from EEPROM
+    static uint8_t read_coord_data(uint8_t coord_select, float *coord_data);
+};
 
 #endif
 

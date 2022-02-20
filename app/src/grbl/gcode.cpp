@@ -42,7 +42,7 @@ void gc_init() {
     memset(&gc_state, 0, sizeof(parser_state_t));
 
     // Load default G54 coordinate system.
-    if (!(settings_read_coord_data(gc_state.modal.coord_select,gc_state.coord_system))) {
+    if (!(grbl.settings.read_coord_data(gc_state.modal.coord_select,gc_state.coord_system))) {
         report_status_message(STATUS_SETTING_READ_FAIL);
     }
 }
@@ -50,7 +50,7 @@ void gc_init() {
 // Sets g-code parser position in mm. Input in steps. Called by the system abort and hard
 // limit pull-off routines.
 void gc_sync_position() {
-  system_convert_array_steps_to_mpos(gc_state.position,sys_position);
+  system_convert_array_steps_to_mpos(gc_state.position,grbl.sys_position);
 }
 
 // Executes one line of 0-terminated G-Code. The line is assumed to contain only uppercase
@@ -501,7 +501,7 @@ uint8_t gc_execute_line(char *line)
   if ( bit_istrue(command_words,bit(MODAL_GROUP_G12)) ) { // Check if called in block
     if (gc_block.modal.coord_select > N_COORDINATE_SYSTEM) { FAIL(STATUS_GCODE_UNSUPPORTED_COORD_SYS); } // [Greater than N sys]
     if (gc_state.modal.coord_select != gc_block.modal.coord_select) {
-      if (!(settings_read_coord_data(gc_block.modal.coord_select,block_coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
+      if (!(grbl.settings.read_coord_data(gc_block.modal.coord_select,block_coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
     }
   }
 
@@ -535,7 +535,7 @@ uint8_t gc_execute_line(char *line)
       else { coord_select = gc_block.modal.coord_select; } // Index P0 as the active coordinate system
       
       // NOTE: Store parameter data in IJK values. By rule, they are not in use with this command.
-      if (!settings_read_coord_data(coord_select,gc_block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); } // [EEPROM read fail]
+      if (!grbl.settings.read_coord_data(coord_select,gc_block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); } // [EEPROM read fail]
 
       // Pre-calculate the coordinate data changes.
       for (idx=0; idx<N_AXIS; idx++) { // Axes indices are consistent, so loop may be used.
@@ -606,9 +606,9 @@ uint8_t gc_execute_line(char *line)
           // Retreive G28/30 go-home position data (in machine coordinates) from EEPROM
           // NOTE: Store parameter data in IJK values. By rule, they are not in use with this command.
           if (gc_block.non_modal_command == NON_MODAL_GO_HOME_0) {
-            if (!settings_read_coord_data(SETTING_INDEX_G28,gc_block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); }
+            if (!grbl.settings.read_coord_data(SETTING_INDEX_G28,gc_block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); }
           } else { // == NON_MODAL_GO_HOME_1
-            if (!settings_read_coord_data(SETTING_INDEX_G30,gc_block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); }
+            if (!grbl.settings.read_coord_data(SETTING_INDEX_G30,gc_block.values.ijk)) { FAIL(STATUS_SETTING_READ_FAIL); }
           }
           if (axis_words) {
             // Move only the axes specified in secondary move.
@@ -862,7 +862,7 @@ uint8_t gc_execute_line(char *line)
   }
 
   // If in laser mode, setup laser power based on current and past parser conditions.
-  if (bit_istrue(settings.flags, BITFLAG_LASER_MODE)) {
+  if (bit_istrue(grbl.settings.flags(), BITFLAG_LASER_MODE)) {
       if (!((gc_block.modal.motion == MOTION_MODE_LINEAR) || (gc_block.modal.motion == MOTION_MODE_CW_ARC)
           || (gc_block.modal.motion == MOTION_MODE_CCW_ARC))) {
           gc_parser_flags |= GC_PARSER_LASER_DISABLE;
@@ -1010,7 +1010,7 @@ uint8_t gc_execute_line(char *line)
   // [19. Go to predefined position, Set G10, or Set axis offsets ]:
   switch(gc_block.non_modal_command) {
     case NON_MODAL_SET_COORDINATE_DATA:
-      settings_write_coord_data(coord_select,gc_block.values.ijk);
+      grbl.settings.write_coord_data(coord_select,gc_block.values.ijk);
       // Update system coordinate system if currently active.
       if (gc_state.modal.coord_select == coord_select) {
         memcpy(gc_state.coord_system,gc_block.values.ijk,N_AXIS*sizeof(float));
@@ -1026,10 +1026,10 @@ uint8_t gc_execute_line(char *line)
       memcpy(gc_state.position, gc_block.values.ijk, N_AXIS*sizeof(float));
       break;
     case NON_MODAL_SET_HOME_0:
-      settings_write_coord_data(SETTING_INDEX_G28,gc_state.position);
+        grbl.settings.write_coord_data(SETTING_INDEX_G28,gc_state.position);
       break;
     case NON_MODAL_SET_HOME_1:
-      settings_write_coord_data(SETTING_INDEX_G30,gc_state.position);
+        grbl.settings.write_coord_data(SETTING_INDEX_G30,gc_state.position);
       break;
     case NON_MODAL_SET_COORDINATE_OFFSET:
       memcpy(gc_state.coord_offset,gc_block.values.xyz,sizeof(gc_block.values.xyz));
@@ -1085,7 +1085,7 @@ uint8_t gc_execute_line(char *line)
   if (gc_state.modal.program_flow) {
     protocol_buffer_synchronize(); // Sync and finish all remaining buffered motions before moving on.
     if (gc_state.modal.program_flow == PROGRAM_FLOW_PAUSED) {
-      if (sys.state != STATE_CHECK_MODE) {
+      if (grbl.sys.state != STATE_CHECK_MODE) {
         system_set_exec_state_flag(EXEC_FEED_HOLD); // Use feed hold for program pause.
         protocol_execute_realtime(); // Execute suspend.
       }
@@ -1111,14 +1111,14 @@ uint8_t gc_execute_line(char *line)
 			#endif
 
       #ifdef RESTORE_OVERRIDES_AFTER_PROGRAM_END
-        sys.f_override = DEFAULT_FEED_OVERRIDE;
-        sys.r_override = DEFAULT_RAPID_OVERRIDE;
-        sys.spindle_speed_ovr = DEFAULT_SPINDLE_SPEED_OVERRIDE;
+        grbl.sys.f_override = DEFAULT_FEED_OVERRIDE;
+        grbl.sys.r_override = DEFAULT_RAPID_OVERRIDE;
+        grbl.sys.spindle_speed_ovr = DEFAULT_SPINDLE_SPEED_OVERRIDE;
       #endif
 
       // Execute coordinate change and spindle/coolant stop.
-      if (sys.state != STATE_CHECK_MODE) {
-        if (!(settings_read_coord_data(gc_state.modal.coord_select,gc_state.coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
+      if (grbl.sys.state != STATE_CHECK_MODE) {
+        if (!(grbl.settings.read_coord_data(gc_state.modal.coord_select,gc_state.coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
         system_flag_wco_change(); // Set to refresh immediately just in case something altered.
         spindle_set_state(SPINDLE_DISABLE,0.0f);
         coolant_set_state(COOLANT_DISABLE);

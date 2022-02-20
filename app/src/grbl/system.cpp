@@ -57,11 +57,11 @@ void system_external_interrupts_handle() {
         if (bit_istrue(pin, CONTROL_PIN_INDEX_RESET)) {
             mc_reset();
         } else if (bit_istrue(pin, CONTROL_PIN_INDEX_CYCLE_START)) {
-            bit_true(sys_rt_exec_state, EXEC_CYCLE_START);
+            bit_true(grbl.sys_rt_exec_state, EXEC_CYCLE_START);
         }
 #ifndef ENABLE_SAFETY_DOOR_INPUT_PIN
         else if (bit_istrue(pin, CONTROL_PIN_INDEX_FEED_HOLD)) {
-            bit_true(sys_rt_exec_state, EXEC_FEED_HOLD);
+            bit_true(grbl.sys_rt_exec_state, EXEC_FEED_HOLD);
         }
 #else
         else if (bit_istrue(pin, CONTROL_PIN_INDEX_SAFETY_DOOR)) {
@@ -85,7 +85,7 @@ uint8_t system_check_safety_door_ajar() {
 void system_execute_startup(char *line) {
     uint8_t n;
     for (n=0; n < N_STARTUP_LINE; n++) {
-        if (!(settings_read_startup_line(n, line))) {
+        if (!(grbl.settings.read_startup_line(n, line))) {
             line[0] = 0;
             report_execute_startup_message(line,STATUS_SETTING_READ_FAIL);
         } else {
@@ -117,7 +117,7 @@ uint8_t system_execute_line(char *line) {
 
         case 'J' : // Jogging
             // Execute only if in IDLE or JOG states.
-            if (sys.state != STATE_IDLE && sys.state != STATE_JOG) { return(STATUS_IDLE_ERROR); }
+            if (grbl.sys.state != STATE_IDLE && grbl.sys.state != STATE_JOG) { return(STATUS_IDLE_ERROR); }
             if(line[2] != '=') { return(STATUS_INVALID_STATEMENT); }
             return(gc_execute_line(line)); // NOTE: $J= is ignored inside g-code parser and used to detect jog motions.
 			break;
@@ -125,10 +125,8 @@ uint8_t system_execute_line(char *line) {
             if ( line[2] != 0 ) { return(STATUS_INVALID_STATEMENT); }
             switch( line[1] ) {
                 case '$' : // Prints Grbl settings
-                    if ( sys.state & (STATE_CYCLE | STATE_HOLD) ) { return(STATUS_IDLE_ERROR); } // Block during cycle. Takes too long to print.
-                    else {
-                        report_grbl_settings();
-                    }
+                    if ( grbl.sys.state & (STATE_CYCLE | STATE_HOLD) ) { return(STATUS_IDLE_ERROR); } // Block during cycle. Takes too long to print.
+                    else { report_grbl_settings(&grbl.settings); }
                     break;
                 case 'G' : // Prints gcode parser state
                     // TODO: Move this to realtime commands for GUIs to request this data during suspend-state.
@@ -138,23 +136,23 @@ uint8_t system_execute_line(char *line) {
                     // Perform reset when toggling off. Check g-code mode should only work if Grbl
                     // is idle and ready, regardless of alarm locks. This is mainly to keep things
                     // simple and consistent.
-                    if ( sys.state == STATE_CHECK_MODE ) {
+                    if ( grbl.sys.state == STATE_CHECK_MODE ) {
                         mc_reset();
                         report_feedback_message(MESSAGE_DISABLED);
                     } else {
-                        if (sys.state) { return(STATUS_IDLE_ERROR); } // Requires no alarm mode.
-                        sys.state = STATE_CHECK_MODE;
+                        if (grbl.sys.state) { return(STATUS_IDLE_ERROR); } // Requires no alarm mode.
+                        grbl.sys.state = STATE_CHECK_MODE;
                         report_feedback_message(MESSAGE_ENABLED);
                     }
                     break;
                 case 'X' : // Disable alarm lock [ALARM]
-                    if (sys.state == STATE_ALARM) {
+                    if (grbl.sys.state == STATE_ALARM) {
 
                         // Block if safety door is ajar.
                         if (system_check_safety_door_ajar()) { return(STATUS_CHECK_DOOR); }
 
                         report_feedback_message(MESSAGE_ALARM_UNLOCK);
-                        sys.state = STATE_IDLE;
+                        grbl.sys.state = STATE_IDLE;
                         // Don't run startup script. Prevents stored moves in startup from causing accidents.
                     } // Otherwise, no effect.
                     break;
@@ -163,7 +161,7 @@ uint8_t system_execute_line(char *line) {
 
         default :
             // Block any system command that requires the state as IDLE/ALARM. (i.e. EEPROM, homing)
-            if ( !(sys.state == STATE_IDLE || sys.state == STATE_ALARM) ) { return(STATUS_IDLE_ERROR); }
+            if ( !(grbl.sys.state == STATE_IDLE || grbl.sys.state == STATE_ALARM) ) { return(STATUS_IDLE_ERROR); }
             switch( line[1] ) {
                 case '#' : // Print Grbl NGC parameters
                     if ( line[2] != 0 ) { return(STATUS_INVALID_STATEMENT); }
@@ -171,11 +169,11 @@ uint8_t system_execute_line(char *line) {
                     break;
 
                 case 'H' : // Perform homing cycle [IDLE/ALARM]
-                    if (bit_isfalse(settings.flags,BITFLAG_HOMING_ENABLE)) {return(STATUS_SETTING_DISABLED); }
+                    if (bit_isfalse(grbl.settings.flags(),BITFLAG_HOMING_ENABLE)) {return(STATUS_SETTING_DISABLED); }
 
                     if (system_check_safety_door_ajar()) { return(STATUS_CHECK_DOOR); } // Block if safety door is ajar.
 
-                    sys.state = STATE_HOMING; // Set system state variable
+                    grbl.sys.state = STATE_HOMING; // Set system state variable
                     if (line[2] == 0) {
                         mc_homing_cycle(HOMING_CYCLE_ALL);
                         #ifdef HOMING_SINGLE_AXIS_COMMANDS
@@ -188,9 +186,9 @@ uint8_t system_execute_line(char *line) {
               }
                         #endif
                     } else { return(STATUS_INVALID_STATEMENT); }
-                    if (!sys.abort) {  // Execute startup scripts after successful homing.
-                        sys.state = STATE_IDLE; // Set to IDLE when complete.
-                        st_go_idle(); // Set steppers to the settings idle state before returning.
+                    if (!grbl.sys.abort) {  // Execute startup scripts after successful homing.
+                        grbl.sys.state = STATE_IDLE; // Set to IDLE when complete.
+                        grbl.steppers.go_idle(); // Set steppers to the settings idle state before returning.
                         if (line[2] == 0) { system_execute_startup(line); }
                     }
                     break;
@@ -202,7 +200,7 @@ uint8_t system_execute_line(char *line) {
 
                 case 'I' : // Print or store build info. [IDLE/ALARM]
                     if ( line[++char_counter] == 0 ) {
-                        settings_read_build_info(line);
+                        grbl.settings.read_build_info(line);
                         report_build_info(line);
                     #ifdef ENABLE_BUILD_INFO_WRITE_COMMAND
                     } else { // Store startup line [IDLE/ALARM]
@@ -211,7 +209,7 @@ uint8_t system_execute_line(char *line) {
                         do {
                             line[char_counter-helper_var] = line[char_counter];
                         } while (line[char_counter++] != 0);
-                        settings_store_build_info(line);
+                        grbl.settings.store_build_info(line);
                     #endif
                     }
                     break;
@@ -220,13 +218,13 @@ uint8_t system_execute_line(char *line) {
                     if ((line[2] != 'S') || (line[3] != 'T') || (line[4] != '=') || (line[6] != 0)) { return(STATUS_INVALID_STATEMENT); }
                     switch (line[5]) {
                         #ifdef ENABLE_RESTORE_EEPROM_DEFAULT_SETTINGS
-                        case '$': settings_restore(SETTINGS_RESTORE_DEFAULTS); break;
+                        case '$': grbl.settings.restore(SETTINGS_RESTORE_DEFAULTS); break;
                         #endif
                         #ifdef ENABLE_RESTORE_EEPROM_CLEAR_PARAMETERS
-                        case '#': settings_restore(SETTINGS_RESTORE_PARAMETERS); break;
+                        case '#': grbl.settings.restore(SETTINGS_RESTORE_PARAMETERS); break;
                         #endif
                         #ifdef ENABLE_RESTORE_EEPROM_WIPE_ALL
-                        case '*': settings_restore(SETTINGS_RESTORE_ALL); break;
+                        case '*': grbl.settings.restore(SETTINGS_RESTORE_ALL); break;
                         #endif
                         default: return(STATUS_INVALID_STATEMENT);
                     }
@@ -237,7 +235,7 @@ uint8_t system_execute_line(char *line) {
                 case 'N' : // Startup lines. [IDLE/ALARM]
                     if ( line[++char_counter] == 0 ) { // Print startup lines
                         for (helper_var=0; helper_var < N_STARTUP_LINE; helper_var++) {
-                            if (!(settings_read_startup_line(helper_var, line))) {
+                            if (!(grbl.settings.read_startup_line(helper_var, line))) {
                                 report_status_message(STATUS_SETTING_READ_FAIL);
                             } else {
                                 report_startup_line(helper_var,line);
@@ -245,7 +243,7 @@ uint8_t system_execute_line(char *line) {
                         }
                         break;
                     } else { // Store startup line [IDLE Only] Prevents motion during ALARM.
-                        if (sys.state != STATE_IDLE) { return(STATUS_IDLE_ERROR); } // Store only when idle.
+                        if (grbl.sys.state != STATE_IDLE) { return(STATUS_IDLE_ERROR); } // Store only when idle.
                         helper_var = true;  // Set helper_var to flag storing method.
                         // No break. Continues into default: to read remaining command characters.
                     }
@@ -264,12 +262,12 @@ uint8_t system_execute_line(char *line) {
                         if (helper_var) { return(helper_var); }
                         else {
                             helper_var = truncf(parameter); // Set helper_var to int value of parameter
-                            settings_store_startup_line(helper_var,line);
+                            grbl.settings.store_startup_line(helper_var,line);
                         }
                     } else { // Store global setting.
                         if(!read_float(line, &char_counter, &value)) { return(STATUS_BAD_NUMBER_FORMAT); }
                         if((line[char_counter] != 0) || (parameter > 255)) { return(STATUS_INVALID_STATEMENT); }
-                        return(settings_store_global_setting((uint8_t)parameter, value));
+                        return(grbl.settings.store_global((uint8_t)parameter, value));
                     }
                 }
             }
@@ -280,7 +278,7 @@ void system_flag_wco_change() {
     #ifdef FORCE_BUFFER_SYNC_DURING_WCO_CHANGE
     protocol_buffer_synchronize();
     #endif
-    sys.report_wco_counter = 0;
+    grbl.sys.report_wco_counter = 0;
 }
 
 
@@ -298,7 +296,7 @@ float system_convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx) {
         pos = steps[idx]/settings.steps_per_mm[idx];
     }
     #else
-    pos = steps[idx]/settings.steps_per_mm[idx];
+    pos = steps[idx]/grbl.settings.steps_per_mm(idx);
     #endif
     return(pos);
 }
@@ -339,7 +337,7 @@ uint8_t system_check_travel_limits(float *target) {
       }
         #else
         // NOTE: max_travel is stored as negative
-        if (target[idx] > 0 || target[idx] < settings.max_travel[idx]) { return(true); }
+        if (target[idx] > 0 || target[idx] < grbl.settings.max_travel(idx)) { return(true); }
         #endif
     }
     return(false);
@@ -348,48 +346,48 @@ uint8_t system_check_travel_limits(float *target) {
 // Special handlers for setting and clearing Grbl's real-time execution flags.
 void system_set_exec_state_flag(uint8_t mask) {
     __disable_irq();
-    sys_rt_exec_state |= (mask);
+    grbl.sys_rt_exec_state |= (mask);
     __enable_irq();
 }
 
 void system_clear_exec_state_flag(uint8_t mask) {
     __disable_irq();
-    sys_rt_exec_state &= ~(mask);
+    grbl.sys_rt_exec_state &= ~(mask);
     __enable_irq();
 }
 
 void system_set_exec_alarm(uint8_t code) {
     __disable_irq();
-    sys_rt_exec_alarm |= (code);
+    grbl.sys_rt_exec_alarm |= (code);
     __enable_irq();
 }
 
 void system_clear_exec_alarm() {
     __disable_irq();
-    sys_rt_exec_alarm = 0;
+    grbl.sys_rt_exec_alarm = 0;
     __enable_irq();
 }
 
 void system_set_exec_motion_override_flag(uint8_t mask) {
     __disable_irq();
-    sys_rt_exec_motion_override |= (mask);
+    grbl.sys_rt_exec_motion_override |= (mask);
     __enable_irq();
 }
 
 void system_set_exec_accessory_override_flag(uint8_t mask) {
     __disable_irq();
-    sys_rt_exec_accessory_override |= (mask);
+    grbl.sys_rt_exec_accessory_override |= (mask);
     __enable_irq();
 }
 
 void system_clear_exec_motion_overrides() {
     __disable_irq();
-    sys_rt_exec_motion_override = 0;
+    grbl.sys_rt_exec_motion_override = 0;
     __enable_irq();
 }
 
 void system_clear_exec_accessory_overrides() {
     __disable_irq();
-    sys_rt_exec_accessory_override = 0;
+    grbl.sys_rt_exec_accessory_override = 0;
     __enable_irq();
 }

@@ -30,14 +30,13 @@ void probe_init() {
     probe_configure_invert_mask(false); // Initialize invert mask.
 }
 
-
 // Called by probe_init() and the mc_probe() routines. Sets up the probe pin invert mask to
 // appropriately set the pin logic according to setting for normal-high/normal-low operation
 // and the probing cycle modes for toward-workpiece/away-from-workpiece.
 void probe_configure_invert_mask(uint8_t is_probe_away)
 {
   probe_invert_mask = 0; // Initialize as zero.
-  if (bit_isfalse(settings.flags,BITFLAG_INVERT_PROBE_PIN)) { probe_invert_mask ^= PROBE_MASK; }
+  if (bit_isfalse(grbl.settings.flags(), BITFLAG_INVERT_PROBE_PIN)) { probe_invert_mask ^= PROBE_MASK; }
   if (is_probe_away) { probe_invert_mask ^= PROBE_MASK; }
 }
 
@@ -51,8 +50,8 @@ uint8_t probe_get_state() {
 // NOTE: This function must be extremely efficient as to not bog down the stepper ISR.
 void probe_state_monitor()  {
     if (probe_get_state()) {
-        sys_probe_state = PROBE_OFF;
-        memcpy(sys_probe_position, sys_position, sizeof(sys_position));
-        bit_true(sys_rt_exec_state, EXEC_MOTION_CANCEL);
+        grbl.sys_probe_state = PROBE_OFF;
+        memcpy(grbl.sys_probe_position, grbl.sys_position, sizeof(grbl.sys_position));
+        bit_true(grbl.sys_rt_exec_state, EXEC_MOTION_CANCEL);
     }
 }

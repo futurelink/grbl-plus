@@ -50,7 +50,7 @@ uint8_t limits_get_state() {
     #ifdef INVERT_LIMIT_PIN_MASK
     pin ^= INVERT_LIMIT_PIN_MASK;
     #endif
-    if (bit_isfalse(settings.flags, BITFLAG_INVERT_LIMIT_PINS)) { pin ^= LIMIT_MASK; }
+    if (bit_isfalse(grbl.settings.flags(), BITFLAG_INVERT_LIMIT_PINS)) { pin ^= LIMIT_MASK; }
     if (pin) {
         uint8_t idx;
         for (idx = 0; idx < N_AXIS; idx++) {
@@ -80,8 +80,8 @@ void limits_external_interrupt_handle() {
     // moves in the planner and serial buffers are all cleared and newly sent blocks will be
     // locked out until a homing cycle or a kill lock command. Allows the user to disable the hard
     // limit setting if their limits are constantly triggering after a reset and move their axes.
-    if (sys.state != STATE_ALARM) {
-        if (!(sys_rt_exec_alarm)) {
+    if (grbl.sys.state != STATE_ALARM) {
+        if (!(grbl.sys_rt_exec_alarm)) {
             #ifdef HARD_LIMIT_FORCE_STATE_CHECK
             // Check limit pin state.
             if (limits_get_state()) {
@@ -103,7 +103,7 @@ ISR(LIMIT_INT_vect) { if (!(WDTCSR & (1 << WDIE))) { WDTCSR |= (1 << WDIE); } }
 ISR(WDT_vect) // Watchdog timer ISR
 {
   WDTCSR &= ~(1 << WDIE); // Disable watchdog timer. 
-  if (sys.state != STATE_ALARM) {  // Ignore if already in alarm state. 
+  if (grbl.sys.state != STATE_ALARM) {  // Ignore if already in alarm state. 
     if (!(sys_rt_exec_alarm)) {
       // Check limit pin state. 
       if (limits_get_state()) {
@@ -126,7 +126,7 @@ ISR(WDT_vect) // Watchdog timer ISR
 // NOTE: Only the abort realtime command can interrupt this process.
 // TODO: Move limit pin-specific calls to a general function for portability.
 void limits_go_home(uint8_t cycle_mask) {
-    if (sys.abort) { return; } // Block if system reset has been issued.
+    if (grbl.sys.abort) { return; } // Block if system reset has been issued.
 
     // Initialize plan data struct for homing motion. Spindle and coolant are disabled.
     plan_line_data_t plan_data;
@@ -153,17 +153,17 @@ void limits_go_home(uint8_t cycle_mask) {
         if (bit_istrue(cycle_mask,bit(idx))) {
           // Set target based on max_travel setting. Ensure homing switches engaged with search scalar.
           // NOTE: settings.max_travel[] is stored as a negative value.
-          max_travel = max(max_travel,(-HOMING_AXIS_SEARCH_SCALAR)*settings.max_travel[idx]);
+          max_travel = max(max_travel,(-HOMING_AXIS_SEARCH_SCALAR)*grbl.settings.max_travel(idx));
         }
     }
 
     // Set search mode with approach at seek rate to quickly engage the specified cycle_mask limit switches.
     bool approach = true;
-    float homing_rate = settings.homing_seek_rate;
+    float homing_rate = grbl.settings.homing_seek_rate();
 
     uint8_t limit_state, axislock, n_active_axis;
     do {
-        system_convert_array_steps_to_mpos(target,sys_position);
+        system_convert_array_steps_to_mpos(target,grbl.sys_position);
 
         // Initialize and declare variables needed for homing routine.
         axislock = 0;
@@ -184,11 +184,11 @@ void limits_go_home(uint8_t cycle_mask) {
             sys_position[Z_AXIS] = 0;
           }
                 #else
-                sys_position[idx] = 0;
+                grbl.sys_position[idx] = 0;
                 #endif
                 // Set target direction based on cycle mask and homing cycle approach state.
                 // NOTE: This happens to compile smaller than any other implementation tried.
-                if (bit_istrue(settings.homing_dir_mask,bit(idx))) {
+                if (bit_istrue(grbl.settings.homing_dir_mask(),bit(idx))) {
                     if (approach) { target[idx] = -max_travel; }
                     else { target[idx] = max_travel; }
                 } else {
@@ -201,15 +201,15 @@ void limits_go_home(uint8_t cycle_mask) {
         }
 
         homing_rate *= sqrtf(n_active_axis); // [sqrt(N_AXIS)] Adjust so individual axes all move at homing rate.
-        sys.homing_axis_lock = axislock;
+        grbl.sys.homing_axis_lock = axislock;
 
         // Perform homing cycle. Planner buffer should be empty, as required to initiate the homing cycle.
         pl_data->feed_rate = homing_rate; // Set current homing rate.
-        plan_buffer_line(target, pl_data); // Bypass mc_line(). Directly plan homing motion.
+        grbl.planner.buffer_line(target, pl_data); // Bypass mc_line(). Directly plan homing motion.
 
-        sys.step_control = STEP_CONTROL_EXECUTE_SYS_MOTION; // Set to execute homing motion and clear existing flags.
-        st_prep_buffer(); // Prep and fill segment buffer from newly planned block.
-        st_wake_up(); // Initiate motion
+        grbl.sys.step_control = STEP_CONTROL_EXECUTE_SYS_MOTION; // Set to execute homing motion and clear existing flags.
+        grbl.steppers.prep_buffer(); // Prep and fill segment buffer from newly planned block.
+        grbl.steppers.wake_up(); // Initiate motion
 
         do {
             if (approach) {
@@ -227,13 +227,13 @@ void limits_go_home(uint8_t cycle_mask) {
                         }
                     }
                 }
-                sys.homing_axis_lock = axislock;
+                grbl.sys.homing_axis_lock = axislock;
             }
-            st_prep_buffer(); // Check and prep segment buffer. NOTE: Should take no longer than 200us.
+            grbl.steppers.prep_buffer(); // Check and prep segment buffer. NOTE: Should take no longer than 200us.
 
             // Exit routines: No time to run protocol_execute_realtime() in this loop.
-            if (sys_rt_exec_state & (EXEC_SAFETY_DOOR | EXEC_RESET | EXEC_CYCLE_STOP)) {
-                uint8_t rt_exec = sys_rt_exec_state;
+            if (grbl.sys_rt_exec_state & (EXEC_SAFETY_DOOR | EXEC_RESET | EXEC_CYCLE_STOP)) {
+                uint8_t rt_exec = grbl.sys_rt_exec_state;
                 // Homing failure condition: Reset issued during cycle.
                 if (rt_exec & EXEC_RESET) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_RESET); }
                 // Homing failure condition: Safety door was opened.
@@ -242,7 +242,7 @@ void limits_go_home(uint8_t cycle_mask) {
                 if (!approach && (limits_get_state() & cycle_mask)) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_PULLOFF); }
                 // Homing failure condition: Limit switch not found during approach.
                 if (approach && (rt_exec & EXEC_CYCLE_STOP)) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_APPROACH); }
-                if (sys_rt_exec_alarm) {
+                if (grbl.sys_rt_exec_alarm) {
                     mc_reset(); // Stop motors, if they are running.
                     protocol_execute_realtime();
                     return;
@@ -254,19 +254,19 @@ void limits_go_home(uint8_t cycle_mask) {
             }
         } while (STEP_MASK & axislock);
 
-        st_reset(); // Immediately force kill steppers and reset step segment buffer.
-        HAL_Delay(settings.homing_debounce_delay); // Delay to allow transient dynamics to dissipate.
+        grbl.steppers.reset(); // Immediately force kill steppers and reset step segment buffer.
+        HAL_Delay(grbl.settings.homing_debounce_delay()); // Delay to allow transient dynamics to dissipate.
 
         // Reverse direction and reset homing rate for locate cycle(s).
         approach = !approach;
 
         // After first cycle, homing enters locating phase. Shorten search to pull-off distance.
         if (approach) {
-            max_travel = settings.homing_pulloff*HOMING_AXIS_LOCATE_SCALAR;
-            homing_rate = settings.homing_feed_rate;
+            max_travel = grbl.settings.homing_pulloff()*HOMING_AXIS_LOCATE_SCALAR;
+            homing_rate = grbl.settings.homing_feed_rate();
         } else {
-            max_travel = settings.homing_pulloff;
-            homing_rate = settings.homing_seek_rate;
+            max_travel = grbl.settings.homing_pulloff();
+            homing_rate = grbl.settings.homing_seek_rate();
         }
     } while (n_cycle-- > 0);
 
@@ -285,10 +285,10 @@ void limits_go_home(uint8_t cycle_mask) {
             #ifdef HOMING_FORCE_SET_ORIGIN
             set_axis_position = 0;
             #else
-            if ( bit_istrue(settings.homing_dir_mask,bit(idx)) ) {
-                set_axis_position = lroundf((settings.max_travel[idx]+settings.homing_pulloff)*settings.steps_per_mm[idx]);
+            if ( bit_istrue(grbl.settings.homing_dir_mask(),bit(idx)) ) {
+                set_axis_position = lroundf((grbl.settings.max_travel(idx) + grbl.settings.homing_pulloff()) * grbl.settings.steps_per_mm(idx));
             } else {
-                set_axis_position = lroundf(-settings.homing_pulloff*settings.steps_per_mm[idx]);
+                set_axis_position = lroundf(-grbl.settings.homing_pulloff() * grbl.settings.steps_per_mm(idx));
             }
             #endif
 
@@ -305,12 +305,12 @@ void limits_go_home(uint8_t cycle_mask) {
           sys_position[idx] = set_axis_position;
         }
             #else
-            sys_position[idx] = set_axis_position;
+            grbl.sys_position[idx] = set_axis_position;
             #endif
         }
     }
 
-    sys.step_control = STEP_CONTROL_NORMAL_OP; // Return step control to normal operation.
+    grbl.sys.step_control = STEP_CONTROL_NORMAL_OP; // Return step control to normal operation.
 }
 
 
@@ -319,16 +319,16 @@ void limits_go_home(uint8_t cycle_mask) {
 // NOTE: Used by jogging to limit travel within soft-limit volume.
 void limits_soft_check(float *target) {
     if (system_check_travel_limits(target)) {
-        sys.soft_limit = true;
+        grbl.sys.soft_limit = true;
         // Force feed hold if cycle is active. All buffered blocks are guaranteed to be within
         // workspace volume so just come to a controlled stop so position is not lost. When complete
         // enter alarm mode.
-        if (sys.state == STATE_CYCLE) {
+        if (grbl.sys.state == STATE_CYCLE) {
             system_set_exec_state_flag(EXEC_FEED_HOLD);
             do {
                 protocol_execute_realtime();
-                if (sys.abort) { return; }
-            } while (sys.state != STATE_IDLE);
+                if (grbl.sys.abort) { return; }
+            } while (grbl.sys.state != STATE_IDLE);
         }
         mc_reset(); // Issue system reset and ensure spindle and coolant are shutdown.
         system_set_exec_alarm(EXEC_ALARM_SOFT_LIMIT); // Indicate soft limit critical event
