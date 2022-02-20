@@ -90,13 +90,13 @@ static void report_util_setting_string(uint8_t n) {
 }
 */
 
-static void report_util_uint8_setting(uint8_t n, int val) {
+void GRBLReport::util_uint8_setting(uint8_t n, int val) {
     report_util_setting_prefix(n);
     print_uint8_base10(val);
     report_util_line_feed(); // report_util_setting_string(n);
 }
 
-static void report_util_float_setting(uint8_t n, float val, uint8_t n_decimal) {
+void GRBLReport::util_float_setting(uint8_t n, float val, uint8_t n_decimal) {
     report_util_setting_prefix(n);
     printFloat(val, n_decimal);
     report_util_line_feed(); // report_util_setting_string(n);
@@ -108,7 +108,7 @@ static void report_util_float_setting(uint8_t n, float val, uint8_t n_decimal) {
 // operation. Errors events can originate from the g-code parser, settings module, or asynchronously
 // from a critical error, such as a triggered hard limit. Interface should always monitor for these
 // responses.
-void report_status_message(uint8_t status_code) {
+void GRBLReport::status_message(uint8_t status_code) {
     if (status_code == STATUS_OK) {
         printPgmString(PSTR("ok\r\n"));
     } else {
@@ -119,7 +119,7 @@ void report_status_message(uint8_t status_code) {
 }
 
 // Prints alarm messages.
-void report_alarm_message(uint8_t alarm_code) {
+void GRBLReport::alarm_message(uint8_t alarm_code) {
     printPgmString(PSTR("ALARM:"));
     print_uint8_base10(alarm_code);
     report_util_line_feed();
@@ -131,7 +131,7 @@ void report_alarm_message(uint8_t alarm_code) {
 // messages such as setup warnings, switch toggling, and how to exit alarms.
 // NOTE: For interfaces, messages are always placed within brackets. And if silent mode
 // is installed, the message number codes are less than zero.
-void report_feedback_message(uint8_t message_code) {
+void GRBLReport::feedback_message(uint8_t message_code) {
     printPgmString(PSTR("[MSG:"));
     switch(message_code) {
         case MESSAGE_CRITICAL_EVENT:
@@ -161,42 +161,42 @@ void report_feedback_message(uint8_t message_code) {
 }
 
 // Welcome message
-void report_init_message() {
+void GRBLReport::init_message() {
     printPgmString(PSTR("\r\nGrbl " GRBL_VERSION " ['$' for help]\r\n"));
 }
 
 // Grbl help message
-void report_grbl_help() {
+void GRBLReport::grbl_help() {
     printPgmString(PSTR("[HLP:$$ $# $G $I $N $x=val $Nx=line $J=line $SLP $C $X $H ~ ! ? ctrl-x]\r\n"));
 }
 
 // Grbl global settings print out.
 // NOTE: The numbering scheme here must correlate to storing in settings.c
-void report_grbl_settings(GRBLSettings *settings) {
+void GRBLReport::grbl_settings(GRBLSettings *settings) {
   // Print Grbl settings.
-  report_util_uint8_setting(0,settings->pulse_microseconds());
-  report_util_uint8_setting(1,settings->stepper_idle_lock_time());
-  report_util_uint8_setting(2,settings->step_invert_mask());
-  report_util_uint8_setting(3,settings->dir_invert_mask());
-  report_util_uint8_setting(4,bit_istrue(settings->flags(),BITFLAG_INVERT_ST_ENABLE));
-  report_util_uint8_setting(5,bit_istrue(settings->flags(),BITFLAG_INVERT_LIMIT_PINS));
-  report_util_uint8_setting(6,bit_istrue(settings->flags(),BITFLAG_INVERT_PROBE_PIN));
-  report_util_uint8_setting(10,settings->status_report_mask());
-  report_util_float_setting(11,settings->junction_deviation(),N_DECIMAL_SETTINGVALUE);
-  report_util_float_setting(12,settings->arc_tolerance(),N_DECIMAL_SETTINGVALUE);
-  report_util_uint8_setting(13,bit_istrue(settings->flags(),BITFLAG_REPORT_INCHES));
-  report_util_uint8_setting(20,bit_istrue(settings->flags(),BITFLAG_SOFT_LIMIT_ENABLE));
-  report_util_uint8_setting(21,bit_istrue(settings->flags(),BITFLAG_HARD_LIMIT_ENABLE));
-  report_util_uint8_setting(22,bit_istrue(settings->flags(),BITFLAG_HOMING_ENABLE));
-  report_util_uint8_setting(23,settings->homing_dir_mask());
-  report_util_float_setting(24,settings->homing_feed_rate(),N_DECIMAL_SETTINGVALUE);
-  report_util_float_setting(25,settings->homing_seek_rate(),N_DECIMAL_SETTINGVALUE);
-  report_util_uint8_setting(26,settings->homing_debounce_delay());
-  report_util_float_setting(27,settings->homing_pulloff(),N_DECIMAL_SETTINGVALUE);
-  report_util_float_setting(30,settings->rpm_max(),N_DECIMAL_RPMVALUE);
-  report_util_float_setting(31,settings->rpm_min(),N_DECIMAL_RPMVALUE);
+  util_uint8_setting(0,settings->pulse_microseconds());
+  util_uint8_setting(1,settings->stepper_idle_lock_time());
+  util_uint8_setting(2,settings->step_invert_mask());
+  util_uint8_setting(3,settings->dir_invert_mask());
+  util_uint8_setting(4,bit_istrue(settings->flags(),BITFLAG_INVERT_ST_ENABLE));
+  util_uint8_setting(5,bit_istrue(settings->flags(),BITFLAG_INVERT_LIMIT_PINS));
+  util_uint8_setting(6,bit_istrue(settings->flags(),BITFLAG_INVERT_PROBE_PIN));
+  util_uint8_setting(10,settings->status_report_mask());
+  util_float_setting(11,settings->junction_deviation(),N_DECIMAL_SETTINGVALUE);
+  util_float_setting(12,settings->arc_tolerance(),N_DECIMAL_SETTINGVALUE);
+  util_uint8_setting(13,bit_istrue(settings->flags(),BITFLAG_REPORT_INCHES));
+  util_uint8_setting(20,bit_istrue(settings->flags(),BITFLAG_SOFT_LIMIT_ENABLE));
+  util_uint8_setting(21,bit_istrue(settings->flags(),BITFLAG_HARD_LIMIT_ENABLE));
+  util_uint8_setting(22,bit_istrue(settings->flags(),BITFLAG_HOMING_ENABLE));
+  util_uint8_setting(23,settings->homing_dir_mask());
+  util_float_setting(24,settings->homing_feed_rate(),N_DECIMAL_SETTINGVALUE);
+  util_float_setting(25,settings->homing_seek_rate(),N_DECIMAL_SETTINGVALUE);
+  util_uint8_setting(26,settings->homing_debounce_delay());
+  util_float_setting(27,settings->homing_pulloff(),N_DECIMAL_SETTINGVALUE);
+  util_float_setting(30,settings->rpm_max(),N_DECIMAL_RPMVALUE);
+  util_float_setting(31,settings->rpm_min(),N_DECIMAL_RPMVALUE);
   #ifdef VARIABLE_SPINDLE
-    report_util_uint8_setting(32,bit_istrue(settings->flags(),BITFLAG_LASER_MODE));
+    util_uint8_setting(32,bit_istrue(settings->flags(),BITFLAG_LASER_MODE));
   #else
     report_util_uint8_setting(32,0);
   #endif
@@ -206,10 +206,10 @@ void report_grbl_settings(GRBLSettings *settings) {
   for (set_idx=0; set_idx<AXIS_N_SETTINGS; set_idx++) {
     for (idx=0; idx<N_AXIS; idx++) {
       switch (set_idx) {
-        case 0: report_util_float_setting(val+idx,settings->steps_per_mm(idx),N_DECIMAL_SETTINGVALUE); break;
-        case 1: report_util_float_setting(val+idx,settings->max_rate(idx),N_DECIMAL_SETTINGVALUE); break;
-        case 2: report_util_float_setting(val+idx,settings->acceleration(idx)/(60*60),N_DECIMAL_SETTINGVALUE); break;
-        case 3: report_util_float_setting(val+idx,-settings->max_travel(idx),N_DECIMAL_SETTINGVALUE); break;
+        case 0: util_float_setting(val+idx,settings->steps_per_mm(idx),N_DECIMAL_SETTINGVALUE); break;
+        case 1: util_float_setting(val+idx,settings->max_rate(idx),N_DECIMAL_SETTINGVALUE); break;
+        case 2: util_float_setting(val+idx,settings->acceleration(idx)/(60*60),N_DECIMAL_SETTINGVALUE); break;
+        case 3: util_float_setting(val+idx,-settings->max_travel(idx),N_DECIMAL_SETTINGVALUE); break;
       }
     }
     val += AXIS_SETTINGS_INCREMENT;
@@ -220,7 +220,7 @@ void report_grbl_settings(GRBLSettings *settings) {
 // Prints current probe parameters. Upon a probe command, these parameters are updated upon a
 // successful probe or upon a failed probe with the G38.3 without errors command (if supported).
 // These values are retained until Grbl is power-cycled, whereby they will be re-zeroed.
-void report_probe_parameters() {
+void GRBLReport::probe_parameters() {
     // Report in terms of machine position.
     printPgmString(PSTR("[PRB:"));
     float print_position[N_AXIS];
@@ -232,12 +232,12 @@ void report_probe_parameters() {
 }
 
 // Prints Grbl NGC parameters (coordinate offsets, probing)
-void report_ngc_parameters() {
+void GRBLReport::ngc_parameters() {
     float coord_data[N_AXIS];
     uint8_t coord_select;
     for (coord_select = 0; coord_select <= SETTING_INDEX_NCOORD; coord_select++) {
         if (!(grbl.settings.read_coord_data(coord_select,coord_data))) {
-            report_status_message(STATUS_SETTING_READ_FAIL);
+            status_message(STATUS_SETTING_READ_FAIL);
             return;
         }
         printPgmString(PSTR("[G"));
@@ -258,11 +258,11 @@ void report_ngc_parameters() {
     printPgmString(PSTR("[TLO:")); // Print tool length offset value
     printFloat_CoordValue(grbl.gcode.state.tool_length_offset);
     report_util_feedback_line_feed();
-    report_probe_parameters(); // Print probe parameters. Not persistent in memory.
+    probe_parameters(); // Print probe parameters. Not persistent in memory.
 }
 
 // Print current gcode parser mode state
-void report_gcode_modes() {
+void GRBLReport::gcode_modes() {
     printPgmString(PSTR("[GC:G"));
     if (grbl.gcode.state.modal.motion >= MOTION_MODE_PROBE_TOWARD) {
         printPgmString(PSTR("38."));
@@ -339,7 +339,7 @@ void report_gcode_modes() {
 }
 
 // Prints specified startup line
-void report_startup_line(uint8_t n, char *line)
+void GRBLReport::startup_line(uint8_t n, char *line)
 {
   printPgmString(PSTR("$N"));
   print_uint8_base10(n);
@@ -348,16 +348,16 @@ void report_startup_line(uint8_t n, char *line)
   report_util_line_feed();
 }
 
-void report_execute_startup_message(char *line, uint8_t status_code)
+void GRBLReport::execute_startup_message(char *line, uint8_t status_code)
 {
   serial_write('>');
   printString(line);
   serial_write(':');
-  report_status_message(status_code);
+  status_message(status_code);
 }
 
 // Prints build info line
-void report_build_info(char *line)
+void GRBLReport::build_info(char *line)
 {
   printPgmString(PSTR("[VER:" GRBL_VERSION "." GRBL_VERSION_BUILD ":"));
   printString(line);
@@ -435,7 +435,7 @@ void report_build_info(char *line)
 
 // Prints the character string line Grbl has received from the user, which has been pre-parsed,
 // and has been sent into protocol_execute_line() routine to be executed by Grbl.
-void report_echo_line_received(char *line) {
+void GRBLReport::echo_line_received(char *line) {
     printPgmString(PSTR("[echo: ")); printString(line);
     report_util_feedback_line_feed();
 }
@@ -445,7 +445,7 @@ void report_echo_line_received(char *line) {
  // specific needs, but the desired real-time data report must be as short as possible. This is
  // requires as it minimizes the computational overhead and allows grbl to keep running smoothly,
  // especially during g-code programs with fast, short line segments and high frequency reports (5-20Hz).
-void report_realtime_status() {
+void GRBLReport::realtime_status() {
   uint8_t idx;
   int32_t current_position[N_AXIS]; // Copy current state of the system position variable
   memcpy(current_position, grbl.sys_position, sizeof(grbl.sys_position));

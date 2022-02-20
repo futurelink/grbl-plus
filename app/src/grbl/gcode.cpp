@@ -37,7 +37,7 @@ void GRBLCode::init() {
 
     // Load default G54 coordinate system.
     if (!(grbl.settings.read_coord_data(state.modal.coord_select,state.coord_system))) {
-        report_status_message(STATUS_SETTING_READ_FAIL);
+        GRBLReport::status_message(STATUS_SETTING_READ_FAIL);
     }
 }
 
@@ -1117,7 +1117,7 @@ uint8_t GRBLCode::execute_line(char *line)
             grbl.spindle.set_state(SPINDLE_DISABLE,0.0f);
             grbl.coolant.set_state(COOLANT_DISABLE);
         }
-        report_feedback_message(MESSAGE_PROGRAM_END);
+        GRBLReport::feedback_message(MESSAGE_PROGRAM_END);
     }
     state.modal.program_flow = PROGRAM_FLOW_RUNNING; // Reset program flow.
   }

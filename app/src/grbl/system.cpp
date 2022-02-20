@@ -87,11 +87,11 @@ void GRBLSystem::execute_startup(char *line) {
     for (n=0; n < N_STARTUP_LINE; n++) {
         if (!(grbl.settings.read_startup_line(n, line))) {
             line[0] = 0;
-            report_execute_startup_message(line,STATUS_SETTING_READ_FAIL);
+            GRBLReport::execute_startup_message(line,STATUS_SETTING_READ_FAIL);
         } else {
             if (line[0] != 0) {
                 uint8_t status_code = grbl.gcode.execute_line(line);
-                report_execute_startup_message(line,status_code);
+                GRBLReport::execute_startup_message(line,status_code);
             }
         }
     }
@@ -113,7 +113,7 @@ uint8_t GRBLSystem::execute_line(char *line) {
 
     switch(line[char_counter]) {
 
-        case 0 : report_grbl_help(); break;
+        case 0 : GRBLReport::grbl_help(); break;
 
         case 'J' : // Jogging
             // Execute only if in IDLE or JOG states.
@@ -126,11 +126,11 @@ uint8_t GRBLSystem::execute_line(char *line) {
             switch( line[1] ) {
                 case '$' : // Prints Grbl settings
                     if ( grbl.sys.state & (STATE_CYCLE | STATE_HOLD) ) { return(STATUS_IDLE_ERROR); } // Block during cycle. Takes too long to print.
-                    else { report_grbl_settings(&grbl.settings); }
+                    else { GRBLReport::grbl_settings(&grbl.settings); }
                     break;
                 case 'G' : // Prints gcode parser state
                     // TODO: Move this to realtime commands for GUIs to request this data during suspend-state.
-                    report_gcode_modes();
+                    GRBLReport::gcode_modes();
                     break;
                 case 'C' : // Set check g-code mode [IDLE/CHECK]
                     // Perform reset when toggling off. Check g-code mode should only work if Grbl
@@ -138,11 +138,11 @@ uint8_t GRBLSystem::execute_line(char *line) {
                     // simple and consistent.
                     if ( grbl.sys.state == STATE_CHECK_MODE ) {
                         grbl.motion.reset();
-                        report_feedback_message(MESSAGE_DISABLED);
+                        GRBLReport::feedback_message(MESSAGE_DISABLED);
                     } else {
                         if (grbl.sys.state) { return(STATUS_IDLE_ERROR); } // Requires no alarm mode.
                         grbl.sys.state = STATE_CHECK_MODE;
-                        report_feedback_message(MESSAGE_ENABLED);
+                        GRBLReport::feedback_message(MESSAGE_ENABLED);
                     }
                     break;
                 case 'X' : // Disable alarm lock [ALARM]
@@ -151,7 +151,7 @@ uint8_t GRBLSystem::execute_line(char *line) {
                         // Block if safety door is ajar.
                         if (check_safety_door_ajar()) { return(STATUS_CHECK_DOOR); }
 
-                        report_feedback_message(MESSAGE_ALARM_UNLOCK);
+                        GRBLReport::feedback_message(MESSAGE_ALARM_UNLOCK);
                         grbl.sys.state = STATE_IDLE;
                         // Don't run startup script. Prevents stored moves in startup from causing accidents.
                     } // Otherwise, no effect.
@@ -165,7 +165,7 @@ uint8_t GRBLSystem::execute_line(char *line) {
             switch( line[1] ) {
                 case '#' : // Print Grbl NGC parameters
                     if ( line[2] != 0 ) { return(STATUS_INVALID_STATEMENT); }
-                    else { report_ngc_parameters(); }
+                    else { GRBLReport::ngc_parameters(); }
                     break;
 
                 case 'H' : // Perform homing cycle [IDLE/ALARM]
@@ -200,8 +200,8 @@ uint8_t GRBLSystem::execute_line(char *line) {
 
                 case 'I' : // Print or store build info. [IDLE/ALARM]
                     if ( line[++char_counter] == 0 ) {
-                        grbl.settings.read_build_info(line);
-                        report_build_info(line);
+                        GRBLSettings::read_build_info(line);
+                        GRBLReport::build_info(line);
                     #ifdef ENABLE_BUILD_INFO_WRITE_COMMAND
                     } else { // Store startup line [IDLE/ALARM]
                         if(line[char_counter++] != '=') { return(STATUS_INVALID_STATEMENT); }
@@ -228,17 +228,17 @@ uint8_t GRBLSystem::execute_line(char *line) {
                         #endif
                         default: return(STATUS_INVALID_STATEMENT);
                     }
-                    report_feedback_message(MESSAGE_RESTORE_DEFAULTS);
+                    GRBLReport::feedback_message(MESSAGE_RESTORE_DEFAULTS);
                     grbl.motion.reset(); // Force reset to ensure settings are initialized correctly.
                     break;
 
                 case 'N' : // Startup lines. [IDLE/ALARM]
                     if ( line[++char_counter] == 0 ) { // Print startup lines
                         for (helper_var=0; helper_var < N_STARTUP_LINE; helper_var++) {
-                            if (!(grbl.settings.read_startup_line(helper_var, line))) {
-                                report_status_message(STATUS_SETTING_READ_FAIL);
+                            if (!(GRBLSettings::read_startup_line(helper_var, line))) {
+                                GRBLReport::status_message(STATUS_SETTING_READ_FAIL);
                             } else {
-                                report_startup_line(helper_var,line);
+                                GRBLReport::startup_line(helper_var,line);
                             }
                         }
                         break;
@@ -262,7 +262,7 @@ uint8_t GRBLSystem::execute_line(char *line) {
                         if (helper_var) { return(helper_var); }
                         else {
                             helper_var = truncf(parameter); // Set helper_var to int value of parameter
-                            grbl.settings.store_startup_line(helper_var,line);
+                            GRBLSettings::store_startup_line(helper_var,line);
                         }
                     } else { // Store global setting.
                         if(!read_float(line, &char_counter, &value)) { return(STATUS_BAD_NUMBER_FORMAT); }

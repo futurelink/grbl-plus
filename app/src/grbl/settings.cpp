@@ -315,8 +315,8 @@ uint8_t GRBLSettings::store_global(uint8_t parameter, float value) {
 // Initialize the config subsystem
 void GRBLSettings::init() {
     if(!read_global()) {
-        report_status_message(STATUS_SETTING_READ_FAIL);
+        GRBLReport::status_message(STATUS_SETTING_READ_FAIL);
         restore(SETTINGS_RESTORE_ALL); // Force restore all EEPROM data.
-        report_grbl_settings(&grbl.settings);
+        GRBLReport::grbl_settings(&grbl.settings);
     }
 }

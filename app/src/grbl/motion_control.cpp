@@ -308,7 +308,7 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
 
     #ifdef MESSAGE_PROBE_COORDINATES
     // All done! Output the probe position as message.
-    report_probe_parameters();
+    GRBLReport::probe_parameters();
     #endif
 
     if (grbl.sys.probe_succeeded) { return(GC_PROBE_FOUND); } // Successful probe cycle.

@@ -40,7 +40,7 @@ void protocol_main_loop() {
     if (bit_istrue(grbl.settings.flags(), BITFLAG_HARD_LIMIT_ENABLE)) {
         if (grbl.limits.get_state()) {
             grbl.sys.state = STATE_ALARM; // Ensure alarm state is active.
-            report_feedback_message(MESSAGE_CHECK_LIMITS);
+            GRBLReport::feedback_message(MESSAGE_CHECK_LIMITS);
         }
     }
     #endif
@@ -49,7 +49,7 @@ void protocol_main_loop() {
     // NOTE: Sleep mode disables the stepper drivers and position can't be guaranteed.
     // Re-initialize the sleep state as an ALARM mode to ensure user homes or acknowledges.
     if (grbl.sys.state & (STATE_ALARM | STATE_SLEEP)) {
-        report_feedback_message(MESSAGE_ALARM_LOCK);
+        GRBLReport::feedback_message(MESSAGE_ALARM_LOCK);
         grbl.sys.state = STATE_ALARM; // Ensure alarm state is set.
     } else {
         // Check if the safety door is open.
@@ -91,19 +91,19 @@ void protocol_main_loop() {
                 // Direct and execute one line of formatted input, and report status of execution.
                 if (line_flags & LINE_FLAG_OVERFLOW) {
                     // Report line overflow error.
-                    report_status_message(STATUS_OVERFLOW);
+                    GRBLReport::status_message(STATUS_OVERFLOW);
                 } else if (line[0] == 0) {
                     // Empty or comment line. For syncing purposes.
-                    report_status_message(STATUS_OK);
+                    GRBLReport::status_message(STATUS_OK);
                 } else if (line[0] == '$') {
                     // Grbl '$' system command
-                    report_status_message(grbl.system.execute_line(line));
+                    GRBLReport::status_message(grbl.system.execute_line(line));
                 } else if (grbl.sys.state & (STATE_ALARM | STATE_JOG)) {
                     // Everything else is gcode. Block if in alarm or jog mode.
-                    report_status_message(STATUS_SYSTEM_GC_LOCK);
+                    GRBLReport::status_message(STATUS_SYSTEM_GC_LOCK);
                 } else {
                     // Parse and execute g-code block.
-                    report_status_message(grbl.gcode.execute_line(line));
+                    GRBLReport::status_message(grbl.gcode.execute_line(line));
                 }
 
                 // Reset tracking data for next line.
@@ -217,10 +217,10 @@ void protocol_exec_rt_system()
     // the source of the error to the user. If critical, Grbl disables by entering an infinite
     // loop until system reset/abort.
     grbl.sys.state = STATE_ALARM; // Set system alarm state
-    report_alarm_message(rt_exec);
+      GRBLReport::alarm_message(rt_exec);
     // Halt everything upon a critical event flag. Currently hard and soft limits flag this.
     if ((rt_exec == EXEC_ALARM_HARD_LIMIT) || (rt_exec == EXEC_ALARM_SOFT_LIMIT)) {
-      report_feedback_message(MESSAGE_CRITICAL_EVENT);
+        GRBLReport::feedback_message(MESSAGE_CRITICAL_EVENT);
         grbl.system.clear_exec_state_flag(EXEC_RESET); // Disable any existing reset
       do {
         // Block everything, except reset and status reports, until user issues reset or power
@@ -244,7 +244,7 @@ void protocol_exec_rt_system()
 
     // Execute and serial print status
     if (rt_exec & EXEC_STATUS_REPORT) {
-      report_realtime_status();
+        GRBLReport::realtime_status();
         grbl.system.clear_exec_state_flag(EXEC_STATUS_REPORT);
     }
 
@@ -287,7 +287,7 @@ void protocol_exec_rt_system()
         // NOTE: Safety door differs from feed holds by stopping everything no matter state, disables powered
         // devices (spindle/coolant), and blocks resuming until switch is re-engaged.
         if (rt_exec & EXEC_SAFETY_DOOR) {
-          report_feedback_message(MESSAGE_SAFETY_DOOR_AJAR);
+            GRBLReport::feedback_message(MESSAGE_SAFETY_DOOR_AJAR);
           // If jogging, block safety door methods until jog cancel is complete. Just flag that it happened.
           if (!(grbl.sys.suspend & SUSPEND_JOG_CANCEL)) {
             // Check if the safety re-opened during a restore parking motion only. Ignore if
@@ -615,7 +615,7 @@ static void protocol_exec_rt_suspend()
 
             } else {
                 if (grbl.sys.state == STATE_SLEEP) {
-                    report_feedback_message(MESSAGE_SLEEP_MODE);
+                    GRBLReport::feedback_message(MESSAGE_SLEEP_MODE);
                     // Spindle and coolant should already be stopped, but do it again just to be sure.
                     grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
                     grbl.coolant.set_state(COOLANT_DISABLE); // De-energize
@@ -712,7 +712,7 @@ static void protocol_exec_rt_suspend()
                     // Handles restoring of spindle state
                     } else if (grbl.sys.spindle_stop_ovr & (SPINDLE_STOP_OVR_RESTORE | SPINDLE_STOP_OVR_RESTORE_CYCLE)) {
                         if (grbl.gcode.state.modal.spindle != SPINDLE_DISABLE) {
-                            report_feedback_message(MESSAGE_SPINDLE_RESTORE);
+                            GRBLReport::feedback_message(MESSAGE_SPINDLE_RESTORE);
                             if (bit_istrue(grbl.settings.flags(), BITFLAG_LASER_MODE)) {
                                 // When in laser mode, ignore spindle spin-up delay. Set to turn on laser when cycle starts.
                                 bit_true(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
@@ -733,7 +733,6 @@ static void protocol_exec_rt_suspend()
                         bit_false(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
                     }
                 }
-
             }
         }
 

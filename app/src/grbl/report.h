@@ -88,50 +88,59 @@ extern "C" {
 #define MESSAGE_SPINDLE_RESTORE 10
 #define MESSAGE_SLEEP_MODE 11
 
-// Prints system status messages.
-void report_status_message(uint8_t status_code);
+class GRBLReport {
+private:
+    static void util_uint8_setting(uint8_t n, int val);
+    static void util_float_setting(uint8_t n, float val, uint8_t n_decimal);
 
-// Prints system alarm messages.
-void report_alarm_message(uint8_t alarm_code);
+public:
 
-// Prints miscellaneous feedback messages.
-void report_feedback_message(uint8_t message_code);
+    // Prints system status messages.
+    static void status_message(uint8_t status_code);
 
-// Prints welcome message
-void report_init_message();
+    // Prints system alarm messages.
+    static void alarm_message(uint8_t alarm_code);
 
-// Prints Grbl help and current global settings
-void report_grbl_help();
+    // Prints miscellaneous feedback messages.
+    static void feedback_message(uint8_t message_code);
 
-// Prints Grbl global settings
-void report_grbl_settings(GRBLSettings *settings);
+    // Prints welcome message
+    static void init_message();
 
-// Prints an echo of the pre-parsed line received right before execution.
-void report_echo_line_received(char *line);
+    // Prints Grbl help and current global settings
+    static void grbl_help();
 
-// Prints realtime status report
-void report_realtime_status();
+    // Prints Grbl global settings
+    static void grbl_settings(GRBLSettings *settings);
 
-// Prints recorded probe position
-void report_probe_parameters();
+    // Prints an echo of the pre-parsed line received right before execution.
+    static void echo_line_received(char *line);
 
-// Prints Grbl NGC parameters (coordinate offsets, probe)
-void report_ngc_parameters();
+    // Prints realtime status report
+    static void realtime_status();
 
-// Prints current g-code parser mode state
-void report_gcode_modes();
+    // Prints recorded probe position
+    static void probe_parameters();
 
-// Prints startup line when requested and executed.
-void report_startup_line(uint8_t n, char *line);
+    // Prints Grbl NGC parameters (coordinate offsets, probe)
+    static void ngc_parameters();
 
-void report_execute_startup_message(char *line, uint8_t status_code);
+    // Prints current g-code parser mode state
+    static void gcode_modes();
 
-// Prints build info and user info
-void report_build_info(char *line);
+    // Prints startup line when requested and executed.
+    static void startup_line(uint8_t n, char *line);
+
+    static void execute_startup_message(char *line, uint8_t status_code);
+
+    // Prints build info and user info
+    static void build_info(char *line);
 
 #ifdef DEBUG
-void report_realtime_debug();
+    void report_realtime_debug();
 #endif
+
+};
 
 #ifdef __cplusplus
 }
