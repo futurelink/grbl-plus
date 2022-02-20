@@ -114,10 +114,10 @@ void delay_sec(float seconds, uint8_t mode) {
 	while (i-- > 0) {
 		if (grbl.sys.abort) { return; }
 		if (mode == DELAY_MODE_DWELL) {
-			protocol_execute_realtime();
+            GRBLProtocol::execute_realtime();
 		} else { // DELAY_MODE_SYS_SUSPEND
 		  // Execute rt_system() only to avoid nesting suspend loops.
-		  protocol_exec_rt_system();
+            GRBLProtocol::exec_rt_system();
 		  if (grbl.sys.suspend & SUSPEND_RESTART_RETRACT) { return; } // Bail, if safety door reopens.
 		}
         HAL_Delay(DWELL_TIME_STEP); // Delay DWELL_TIME_STEP increment

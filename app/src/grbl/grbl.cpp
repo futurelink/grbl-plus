@@ -10,9 +10,9 @@ GRBLMain::GRBLMain() {
     stm32_init();
 
     // Initialize system upon power-up.
-    settings.init(); // Load Grbl settings from EEPROM
-    steppers.init();  // Configure stepper pins and interrupt timers
-    system.init();   // Configure pinout pins and pin-change interrupt
+    settings.init();    // Load Grbl settings from EEPROM
+    steppers.init();    // Configure stepper pins and interrupt timers
+    system.init();      // Configure pinout pins and pin-change interrupt
 
     memset(sys_position, 0, sizeof(sys_position)); // Clear machine position.
 
@@ -75,6 +75,6 @@ void GRBLMain::run() {
         GRBLReport::init_message();
 
         // Start Grbl main loop. Processes program inputs and executes them.
-        protocol_main_loop();
+        GRBLProtocol::main_loop();
     }
 }

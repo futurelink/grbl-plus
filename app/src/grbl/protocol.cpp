@@ -34,7 +34,7 @@ static void protocol_exec_rt_suspend();
 /*
   GRBL PRIMARY LOOP:
 */
-void protocol_main_loop() {
+void GRBLProtocol::main_loop() {
     // Perform some machine checks to make sure everything is good to go.
     #ifdef CHECK_LIMITS_AT_INIT
     if (bit_istrue(grbl.settings.flags(), BITFLAG_HARD_LIMIT_ENABLE)) {
@@ -56,7 +56,7 @@ void protocol_main_loop() {
         grbl.sys.state = STATE_IDLE;
         if (grbl.system.check_safety_door_ajar()) {
             bit_true(grbl.sys_rt_exec_state, EXEC_SAFETY_DOOR);
-            protocol_execute_realtime(); // Enter safety door mode. Should return as IDLE state.
+            execute_realtime(); // Enter safety door mode. Should return as IDLE state.
         }
         // All systems go!
         grbl.system.execute_startup(line); // Execute startup script.
@@ -77,7 +77,7 @@ void protocol_main_loop() {
         while((c = grbl.serial.read()) != SERIAL_NO_DATA) {
             if ((c == '\n') || (c == '\r')) { // End of line reached
 
-                protocol_execute_realtime(); // Runtime command check point.
+                execute_realtime(); // Runtime command check point.
                 if (grbl.sys.abort) { return; } // Bail to calling function upon system abort
 
                 line[char_counter] = 0; // Set string termination character.
@@ -153,8 +153,8 @@ void protocol_main_loop() {
         // If there are no more characters in the serial read buffer to be processed and executed,
         // this indicates that g-code streaming has either filled the planner buffer or has
         // completed. In either case, auto-cycle start, if enabled, any queued moves.
-        protocol_auto_cycle_start();
-        protocol_execute_realtime();  // Runtime command check point.
+        auto_cycle_start();
+        execute_realtime();  // Runtime command check point.
 
         if (grbl.sys.abort) { return; } // Bail to main() program loop to reset system.
     }
@@ -165,11 +165,11 @@ void protocol_main_loop() {
 
 // Block until all buffered steps are executed or in a cycle state. Works with feed hold
 // during a synchronize call, if it should happen. Also, waits for clean cycle end.
-void protocol_buffer_synchronize() {
+void GRBLProtocol::buffer_synchronize() {
     // If system is queued, ensure cycle resumes if the auto start flag is present.
-    protocol_auto_cycle_start();
+    auto_cycle_start();
     do {
-        protocol_execute_realtime();   // Check and execute run-time commands
+        execute_realtime();   // Check and execute run-time commands
         if (grbl.sys.abort) { return; } // Check for system abort
     } while (grbl.planner.get_current_block() || (grbl.sys.state == STATE_CYCLE));
 }
@@ -181,7 +181,7 @@ void protocol_buffer_synchronize() {
 // when one of these conditions exist respectively: There are no more blocks sent (i.e. streaming
 // is finished, single commands), a command that needs to wait for the motions in the buffer to
 // execute calls a buffer sync, or the planner buffer is full and ready to go.
-void protocol_auto_cycle_start() {
+void GRBLProtocol::auto_cycle_start() {
     if (grbl.planner.get_current_block() != NULL) { // Check if there are any blocks in the buffer.
         grbl.system.set_exec_state_flag(EXEC_CYCLE_START); // If so, execute them!
     }
@@ -199,17 +199,16 @@ void protocol_auto_cycle_start() {
 // the same task, such as the planner recalculating the buffer upon a feedhold or overrides.
 // NOTE: The sys_rt_exec_state variable flags are set by any process, step or serial interrupts, pinouts,
 // limit switches, or the main program.
-void protocol_execute_realtime() {
-    protocol_exec_rt_system();
-    if (grbl.sys.suspend) { protocol_exec_rt_suspend(); }
+void GRBLProtocol::execute_realtime() {
+    exec_rt_system();
+    if (grbl.sys.suspend) { exec_rt_suspend(); }
 }
 
 
 // Executes run-time commands, when required. This function primarily operates as Grbl's state
 // machine and controls the various real-time features Grbl has to offer.
 // NOTE: Do not alter this unless you know exactly what you are doing!
-void protocol_exec_rt_system()
-{
+void GRBLProtocol::exec_rt_system() {
   uint8_t rt_exec; // Temp variable to avoid calling volatile multiple times.
   rt_exec = grbl.sys_rt_exec_alarm; // Copy volatile sys_rt_exec_alarm.
   if (rt_exec) { // Enter only if any bit flag is true
@@ -498,8 +497,7 @@ void protocol_exec_rt_system()
 // whatever function that invoked the suspend, such that Grbl resumes normal operation.
 // This function is written in a way to promote custom parking motions. Simply use this as a
 // template
-static void protocol_exec_rt_suspend()
-{
+void GRBLProtocol::exec_rt_suspend() {
   #ifdef PARKING_ENABLE
     // Declare and initialize parking local variables
     float restore_target[N_AXIS];
@@ -620,7 +618,7 @@ static void protocol_exec_rt_suspend()
                     grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
                     grbl.coolant.set_state(COOLANT_DISABLE); // De-energize
                     grbl.steppers.go_idle(); // Disable steppers
-                    while (!(grbl.sys.abort)) { protocol_exec_rt_system(); } // Do nothing until reset.
+                    while (!(grbl.sys.abort)) { exec_rt_system(); } // Do nothing until reset.
                         return; // Abort received. Return to re-initialize.
                     }
           
@@ -736,6 +734,6 @@ static void protocol_exec_rt_suspend()
             }
         }
 
-        protocol_exec_rt_system();
+        exec_rt_system();
     }
 }

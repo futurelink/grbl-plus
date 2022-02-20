@@ -53,7 +53,6 @@
 #define GRBL_VERSION "1.1f"
 #define GRBL_VERSION_BUILD "20170801"
 
-
 class GRBLMain {
 public:
     uint16_t cnt;

@@ -107,6 +107,6 @@ void GRBLCoolant::set_state(uint8_t mode) {
 // if an abort or check-mode is active.
 void GRBLCoolant::sync(uint8_t mode) {
     if (grbl.sys.state == STATE_CHECK_MODE) { return; }
-    protocol_buffer_synchronize(); // Ensure coolant turns on when specified in program.
+    GRBLProtocol::buffer_synchronize(); // Ensure coolant turns on when specified in program.
     set_state(mode);
 }

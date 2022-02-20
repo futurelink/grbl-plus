@@ -244,7 +244,7 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
                 if (approach && (rt_exec & EXEC_CYCLE_STOP)) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_APPROACH); }
                 if (grbl.sys_rt_exec_alarm) {
                     grbl.motion.reset(); // Stop motors, if they are running.
-                    protocol_execute_realtime();
+                    GRBLProtocol::execute_realtime();
                     return;
                 } else {
                     // Pull-off motion complete. Disable CYCLE_STOP from executing.
@@ -326,13 +326,13 @@ void GRBLLimits::soft_check(float *target) {
         if (grbl.sys.state == STATE_CYCLE) {
             grbl.system.set_exec_state_flag(EXEC_FEED_HOLD);
             do {
-                protocol_execute_realtime();
+                GRBLProtocol::execute_realtime();
                 if (grbl.sys.abort) { return; }
             } while (grbl.sys.state != STATE_IDLE);
         }
         grbl.motion.reset(); // Issue system reset and ensure spindle and coolant are shutdown.
         grbl.system.set_exec_alarm(EXEC_ALARM_SOFT_LIMIT); // Indicate soft limit critical event
-        protocol_execute_realtime(); // Execute to enter critical event loop and system abort
+        GRBLProtocol::execute_realtime(); // Execute to enter critical event loop and system abort
         return;
     }
 }

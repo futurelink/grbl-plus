@@ -36,20 +36,25 @@ extern "C" {
 #define LINE_BUFFER_SIZE 80
 #endif
 
-// Starts Grbl main loop. It handles all incoming characters from the serial port and executes
-// them as they complete. It is also responsible for finishing the initialization procedures.
-void protocol_main_loop();
+class GRBLProtocol {
+public:
+    // Starts Grbl main loop. It handles all incoming characters from the serial port and executes
+    // them as they complete. It is also responsible for finishing the initialization procedures.
+    static void main_loop();
 
-// Checks and executes a realtime command at various stop points in main program
-void protocol_execute_realtime();
+    // Checks and executes a realtime command at various stop points in main program
+    static void execute_realtime();
 
-void protocol_exec_rt_system();
+    static void exec_rt_system();
 
-// Executes the auto cycle feature, if enabled.
-void protocol_auto_cycle_start();
+    // Executes the auto cycle feature, if enabled.
+    static void auto_cycle_start();
 
-// Block until all buffered steps are executed
-void protocol_buffer_synchronize();
+    static void exec_rt_suspend();
+
+    // Block until all buffered steps are executed
+    static void buffer_synchronize();
+};
 
 #ifdef __cplusplus
 }

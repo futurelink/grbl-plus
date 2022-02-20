@@ -246,7 +246,7 @@ uint16_t GRBLSpindle::compute_pwm_value(float rpm) { // 328p PWM register is 8-b
 #ifdef VARIABLE_SPINDLE
 void GRBLSpindle::sync(uint8_t state, float rpm) {
     if (grbl.sys.state == STATE_CHECK_MODE) { return; }
-    protocol_buffer_synchronize(); // Empty planner buffer to ensure spindle is set when programmed.
+    GRBLProtocol::buffer_synchronize(); // Empty planner buffer to ensure spindle is set when programmed.
     set_state(state,rpm);
 }
 #else

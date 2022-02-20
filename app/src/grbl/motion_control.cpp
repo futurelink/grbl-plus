@@ -56,14 +56,14 @@ void GRBLMotion::line(float *target, plan_line_data_t *pl_data)
   // doesn't update the machine position values. Since the position values used by the g-code
   // parser and planner are separate from the system machine positions, this is doable.
 
-  // If the buffer is full: good! That means we are well ahead of the robot.
-  // Remain in this loop until there is room in the buffer.
-  do {
-    protocol_execute_realtime(); // Check for any run-time commands
-    if (grbl.sys.abort) { return; } // Bail, if system abort.
-    if ( grbl.planner.check_full_buffer() ) { protocol_auto_cycle_start(); } // Auto-cycle start when buffer is full.
-    else { break; }
-  } while (1);
+    // If the buffer is full: good! That means we are well ahead of the robot.
+    // Remain in this loop until there is room in the buffer.
+    do {
+        GRBLProtocol::execute_realtime(); // Check for any run-time commands
+        if (grbl.sys.abort) { return; } // Bail, if system abort.
+        if ( grbl.planner.check_full_buffer() ) { GRBLProtocol::auto_cycle_start(); } // Auto-cycle start when buffer is full.
+        else { break; }
+    } while (1);
 
   // Plan and queue motion into planner buffer
 	if (grbl.planner.buffer_line(target, pl_data) == PLAN_EMPTY_BLOCK) {
@@ -193,11 +193,10 @@ void GRBLMotion::arc(float *target, plan_line_data_t *pl_data, float *position, 
 
 
 // Execute dwell in seconds.
-void GRBLMotion::dwell(float seconds)
-{
-  if (grbl.sys.state == STATE_CHECK_MODE) { return; }
-  protocol_buffer_synchronize();
-  delay_sec(seconds, DELAY_MODE_DWELL);
+void GRBLMotion::dwell(float seconds) {
+    if (grbl.sys.state == STATE_CHECK_MODE) { return; }
+    GRBLProtocol::buffer_synchronize();
+    delay_sec(seconds, DELAY_MODE_DWELL);
 }
 
 // Perform homing cycle to locate and set machine zero. Only '$H' executes this command.
@@ -234,7 +233,7 @@ void GRBLMotion::homing_cycle(uint8_t cycle_mask) {
         #endif
     }
 
-    protocol_execute_realtime(); // Check for reset and set system abort.
+    GRBLProtocol::execute_realtime(); // Check for reset and set system abort.
     if (grbl.sys.abort) { return; } // Did not complete. Alarm state set by mc_alarm.
 
     // Homing cycle complete! Setup system for normal operation.
@@ -257,7 +256,7 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     if (grbl.sys.state == STATE_CHECK_MODE) { return(GC_PROBE_CHECK_MODE); }
 
     // Finish all queued commands and empty planner buffer before starting probe cycle.
-    protocol_buffer_synchronize();
+    GRBLProtocol::buffer_synchronize();
     if (grbl.sys.abort) { return(GC_PROBE_ABORT); } // Return if system reset has been issued.
 
     // Initialize probing control variables
@@ -270,7 +269,7 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     // NOTE: This probe initialization error applies to all probing cycles.
     if ( grbl.probe.get_state() ) { // Check probe pin state.
         grbl.system.set_exec_alarm(EXEC_ALARM_PROBE_FAIL_INITIAL);
-        protocol_execute_realtime();
+        GRBLProtocol::execute_realtime();
         grbl.probe.configure_invert_mask(false); // Re-initialize invert mask before returning.
         return(GC_PROBE_FAIL_INIT); // Nothing else to do but bail.
     }
@@ -284,7 +283,7 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     // Perform probing cycle. Wait here until probe is triggered or motion completes.
     grbl.system.set_exec_state_flag(EXEC_CYCLE_START);
     do {
-        protocol_execute_realtime();
+        GRBLProtocol::execute_realtime();
         if (grbl.sys.abort) { return(GC_PROBE_ABORT); } // Check for system abort
     } while (grbl.sys.state != STATE_IDLE);
 
@@ -299,7 +298,7 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     }
     grbl.sys_probe_state = PROBE_OFF; // Ensure probe state monitor is disabled.
     grbl.probe.configure_invert_mask(false); // Re-initialize invert mask.
-    protocol_execute_realtime();   // Check and execute run-time commands
+    GRBLProtocol::execute_realtime();   // Check and execute run-time commands
 
     // Reset the stepper and planner buffers to remove the remainder of the probe motion.
     grbl.steppers.reset(); // Reset step segment buffer.

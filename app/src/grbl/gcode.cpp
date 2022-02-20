@@ -1079,11 +1079,11 @@ uint8_t GRBLCode::execute_line(char *line)
   // refill and can only be resumed by the cycle start run-time command.
   state.modal.program_flow = block.modal.program_flow;
   if (state.modal.program_flow) {
-    protocol_buffer_synchronize(); // Sync and finish all remaining buffered motions before moving on.
+      GRBLProtocol::buffer_synchronize(); // Sync and finish all remaining buffered motions before moving on.
     if (state.modal.program_flow == PROGRAM_FLOW_PAUSED) {
       if (grbl.sys.state != STATE_CHECK_MODE) {
           grbl.system.set_exec_state_flag(EXEC_FEED_HOLD); // Use feed hold for program pause.
-          protocol_execute_realtime(); // Execute suspend.
+          GRBLProtocol::execute_realtime(); // Execute suspend.
       }
     } else { // == PROGRAM_FLOW_COMPLETED
       // Upon program complete, only a subset of g-codes reset to certain defaults, according to

@@ -24,7 +24,7 @@
 // Method to store startup lines into EEPROM
 void GRBLSettings::store_startup_line(uint8_t n, char *line) {
     #ifdef FORCE_BUFFER_SYNC_DURING_EEPROM_WRITE
-        protocol_buffer_synchronize(); // A startup line may contain a motion and be executing.
+    GRBLProtocol::buffer_synchronize(); // A startup line may contain a motion and be executing.
     #endif
     uint32_t addr = n*(LINE_BUFFER_SIZE+1)+EEPROM_ADDR_STARTUP_BLOCK;
     memcpy_to_eeprom_with_checksum(addr,(char*)line, LINE_BUFFER_SIZE);
@@ -40,7 +40,7 @@ void GRBLSettings::store_build_info(char *line) {
 // Method to store coord data parameters into EEPROM
 void GRBLSettings::write_coord_data(uint8_t coord_select, float *coord_data) {
     #ifdef FORCE_BUFFER_SYNC_DURING_EEPROM_WRITE
-        protocol_buffer_synchronize();
+    GRBLProtocol::buffer_synchronize();
     #endif
     uint32_t addr = coord_select*(sizeof(float)*N_AXIS+1) + EEPROM_ADDR_PARAMETERS;
     memcpy_to_eeprom_with_checksum(addr,(char*)coord_data, sizeof(float)*N_AXIS);

@@ -276,7 +276,7 @@ uint8_t GRBLSystem::execute_line(char *line) {
 
 void GRBLSystem::flag_wco_change() {
     #ifdef FORCE_BUFFER_SYNC_DURING_WCO_CHANGE
-    protocol_buffer_synchronize();
+    GRBLProtocol::buffer_synchronize();
     #endif
     grbl.sys.report_wco_counter = 0;
 }
