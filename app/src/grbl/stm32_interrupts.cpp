@@ -104,3 +104,11 @@ void EXTI15_10_IRQHandler(void) {
     stm32_limits_clear();
     limits_external_interrupt_handle();
 }
+
+void TIM2_IRQHandler() {
+    st_tim2_handler();
+}
+
+void TIM3_IRQHandler() {
+    st_tim3_handler();
+}

@@ -17,9 +17,9 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 find_program(ARM_SIZE_EXECUTABLE arm-none-eabi-size)
 find_program(ARM_GDB_EXECUTABLE arm-none-eabi-gdb)
 
-set(shared_options "-mcpu=cortex-m3 -mthumb -Og -Wall -fno-math-errno -ffunction-sections -fdata-sections -g -gdwarf-2")
+set(shared_options "-mcpu=cortex-m3 -mthumb -Og -Wall -fno-math-errno -ffunction-sections -fdata-sections -g -gdwarf")
 
-set(CMAKE_C_FLAGS_INIT "-Os -std=gnu99 ${shared_options}" CACHE INTERNAL "Initial options for C compiler.")
-set(CMAKE_CXX_FLAGS_INIT "-Os -std=c++11 -fno-rtti ${shared_options}" CACHE INTERNAL "Initial options for CXX compiler.")
+set(CMAKE_C_FLAGS_INIT "-std=gnu99 ${shared_options}" CACHE INTERNAL "Initial options for C compiler.")
+set(CMAKE_CXX_FLAGS_INIT "-std=gnu++11 -fstrict-enums -fsized-deallocation -fno-rtti ${shared_options}" CACHE INTERNAL "Initial options for CXX compiler.")
 set(CMAKE_EXE_LINKER_FLAGS_INIT "${linker_flags} ${shared_options}" CACHE INTERNAL "Initial options for executable linker.")
 
