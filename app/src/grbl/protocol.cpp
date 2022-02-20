@@ -54,12 +54,12 @@ void protocol_main_loop() {
     } else {
         // Check if the safety door is open.
         grbl.sys.state = STATE_IDLE;
-        if (system_check_safety_door_ajar()) {
+        if (grbl.system.check_safety_door_ajar()) {
             bit_true(grbl.sys_rt_exec_state, EXEC_SAFETY_DOOR);
             protocol_execute_realtime(); // Enter safety door mode. Should return as IDLE state.
         }
         // All systems go!
-        system_execute_startup(line); // Execute startup script.
+        grbl.system.execute_startup(line); // Execute startup script.
     }
 
     // ---------------------------------------------------------------------------------
@@ -97,7 +97,7 @@ void protocol_main_loop() {
                     report_status_message(STATUS_OK);
                 } else if (line[0] == '$') {
                     // Grbl '$' system command
-                    report_status_message(system_execute_line(line));
+                    report_status_message(grbl.system.execute_line(line));
                 } else if (grbl.sys.state & (STATE_ALARM | STATE_JOG)) {
                     // Everything else is gcode. Block if in alarm or jog mode.
                     report_status_message(STATUS_SYSTEM_GC_LOCK);
@@ -183,7 +183,7 @@ void protocol_buffer_synchronize() {
 // execute calls a buffer sync, or the planner buffer is full and ready to go.
 void protocol_auto_cycle_start() {
     if (grbl.planner.get_current_block() != NULL) { // Check if there are any blocks in the buffer.
-        system_set_exec_state_flag(EXEC_CYCLE_START); // If so, execute them!
+        grbl.system.set_exec_state_flag(EXEC_CYCLE_START); // If so, execute them!
     }
 }
 
@@ -221,7 +221,7 @@ void protocol_exec_rt_system()
     // Halt everything upon a critical event flag. Currently hard and soft limits flag this.
     if ((rt_exec == EXEC_ALARM_HARD_LIMIT) || (rt_exec == EXEC_ALARM_SOFT_LIMIT)) {
       report_feedback_message(MESSAGE_CRITICAL_EVENT);
-      system_clear_exec_state_flag(EXEC_RESET); // Disable any existing reset
+        grbl.system.clear_exec_state_flag(EXEC_RESET); // Disable any existing reset
       do {
         // Block everything, except reset and status reports, until user issues reset or power
         // cycles. Hard limits typically occur while unattended or not paying attention. Gives
@@ -230,7 +230,7 @@ void protocol_exec_rt_system()
         // lost, continued streaming could cause a serious crash if by chance it gets executed.
       } while (bit_isfalse(grbl.sys_rt_exec_state,EXEC_RESET));
     }
-    system_clear_exec_alarm(); // Clear alarm
+      grbl.system.clear_exec_alarm(); // Clear alarm
   }
 
   rt_exec = grbl.sys_rt_exec_state; // Copy volatile sys_rt_exec_state.
@@ -245,7 +245,7 @@ void protocol_exec_rt_system()
     // Execute and serial print status
     if (rt_exec & EXEC_STATUS_REPORT) {
       report_realtime_status();
-      system_clear_exec_state_flag(EXEC_STATUS_REPORT);
+        grbl.system.clear_exec_state_flag(EXEC_STATUS_REPORT);
     }
 
     // NOTE: Once hold is initiated, the system immediately enters a suspend state to block all
@@ -320,7 +320,7 @@ void protocol_exec_rt_system()
           grbl.sys.state = STATE_SLEEP;
       }
 
-      system_clear_exec_state_flag((EXEC_MOTION_CANCEL | EXEC_FEED_HOLD | EXEC_SAFETY_DOOR | EXEC_SLEEP));
+        grbl.system.clear_exec_state_flag((EXEC_MOTION_CANCEL | EXEC_FEED_HOLD | EXEC_SAFETY_DOOR | EXEC_SLEEP));
     }
 
     // Execute a cycle start by starting the stepper interrupt to begin executing the blocks in queue.
@@ -360,7 +360,7 @@ void protocol_exec_rt_system()
           }
         }
       }
-      system_clear_exec_state_flag(EXEC_CYCLE_START);
+        grbl.system.clear_exec_state_flag(EXEC_CYCLE_START);
     }
 
     if (rt_exec & EXEC_CYCLE_STOP) {
@@ -394,14 +394,14 @@ void protocol_exec_rt_system()
             grbl.sys.state = STATE_IDLE;
         }
       }
-      system_clear_exec_state_flag(EXEC_CYCLE_STOP);
+        grbl.system.clear_exec_state_flag(EXEC_CYCLE_STOP);
     }
   }
 
   // Execute overrides.
   rt_exec = grbl.sys_rt_exec_motion_override; // Copy volatile sys_rt_exec_motion_override
   if (rt_exec) {
-    system_clear_exec_motion_overrides(); // Clear all motion override flags.
+      grbl.system.clear_exec_motion_overrides(); // Clear all motion override flags.
 
     uint8_t new_f_override =  grbl.sys.f_override;
     if (rt_exec & EXEC_FEED_OVR_RESET) { new_f_override = DEFAULT_FEED_OVERRIDE; }
@@ -428,7 +428,7 @@ void protocol_exec_rt_system()
 
   rt_exec = grbl.sys_rt_exec_accessory_override;
   if (rt_exec) {
-    system_clear_exec_accessory_overrides(); // Clear all accessory override flags.
+      grbl.system.clear_exec_accessory_overrides(); // Clear all accessory override flags.
 
     // NOTE: Unlike motion overrides, spindle overrides do not require a planner reinitialization.
     uint8_t last_s_override =  grbl.sys.spindle_speed_ovr;
@@ -527,7 +527,7 @@ static void protocol_exec_rt_suspend()
     }
     #ifdef DISABLE_LASER_DURING_HOLD
       if (bit_istrue(grbl.settings.flags(), BITFLAG_LASER_MODE)) {
-        system_set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_STOP);
+          grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_STOP);
       }
     #endif
   #else
@@ -626,7 +626,7 @@ static void protocol_exec_rt_suspend()
           
                     // Allows resuming from parking/safety door. Actively checks if safety door is closed and ready to resume.
                     if (grbl.sys.state == STATE_SAFETY_DOOR) {
-                        if (!(system_check_safety_door_ajar())) {
+                        if (!(grbl.system.check_safety_door_ajar())) {
                             grbl.sys.suspend &= ~(SUSPEND_SAFETY_DOOR_AJAR); // Reset door ajar flag to denote ready to resume.
                         }
                     }
@@ -693,7 +693,7 @@ static void protocol_exec_rt_suspend()
                         #endif
                         if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
                             grbl.sys.suspend |= SUSPEND_RESTORE_COMPLETE;
-                            system_set_exec_state_flag(EXEC_CYCLE_START); // Set to resume program.
+                            grbl.system.set_exec_state_flag(EXEC_CYCLE_START); // Set to resume program.
                         }
                     }
                 }
@@ -721,7 +721,7 @@ static void protocol_exec_rt_suspend()
                             }
                         }
                         if (grbl.sys.spindle_stop_ovr & SPINDLE_STOP_OVR_RESTORE_CYCLE) {
-                            system_set_exec_state_flag(EXEC_CYCLE_START);  // Set to resume program.
+                            grbl.system.set_exec_state_flag(EXEC_CYCLE_START);  // Set to resume program.
                         }
                         grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_DISABLED; // Clear stop override state
                     }

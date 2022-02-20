@@ -269,7 +269,7 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     // After syncing, check if probe is already triggered. If so, halt and issue alarm.
     // NOTE: This probe initialization error applies to all probing cycles.
     if ( grbl.probe.get_state() ) { // Check probe pin state.
-        system_set_exec_alarm(EXEC_ALARM_PROBE_FAIL_INITIAL);
+        grbl.system.set_exec_alarm(EXEC_ALARM_PROBE_FAIL_INITIAL);
         protocol_execute_realtime();
         grbl.probe.configure_invert_mask(false); // Re-initialize invert mask before returning.
         return(GC_PROBE_FAIL_INIT); // Nothing else to do but bail.
@@ -282,7 +282,7 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     grbl.sys_probe_state = PROBE_ACTIVE;
 
     // Perform probing cycle. Wait here until probe is triggered or motion completes.
-    system_set_exec_state_flag(EXEC_CYCLE_START);
+    grbl.system.set_exec_state_flag(EXEC_CYCLE_START);
     do {
         protocol_execute_realtime();
         if (grbl.sys.abort) { return(GC_PROBE_ABORT); } // Check for system abort
@@ -293,7 +293,7 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     // Set state variables and error out, if the probe failed and cycle with error is enabled.
     if (grbl.sys_probe_state == PROBE_ACTIVE) {
         if (is_no_error) { memcpy(grbl.sys_probe_position, grbl.sys_position, sizeof(grbl.sys_position)); }
-        else { system_set_exec_alarm(EXEC_ALARM_PROBE_FAIL_CONTACT); }
+        else { grbl.system.set_exec_alarm(EXEC_ALARM_PROBE_FAIL_CONTACT); }
     } else {
         grbl.sys.probe_succeeded = true; // Indicate to system the probing cycle completed successfully.
     }
@@ -360,23 +360,24 @@ void GRBLMotion::mc_override_ctrl_update(uint8_t override_state)
 void GRBLMotion::reset() {
     // Only this function can set the system reset. Helps prevent multiple kill calls.
     if (bit_isfalse(grbl.sys_rt_exec_state, EXEC_RESET)) {
-    system_set_exec_state_flag(EXEC_RESET);
+        grbl.system.set_exec_state_flag(EXEC_RESET);
 
-    // Kill spindle and coolant.
-    grbl.spindle.stop();
-    grbl.coolant.stop();
+        // Kill spindle and coolant.
+        grbl.spindle.stop();
+        grbl.coolant.stop();
 
-    // Kill steppers only if in any motion state, i.e. cycle, actively holding, or homing.
-    // NOTE: If steppers are kept enabled via the step idle delay setting, this also keeps
-    // the steppers enabled by avoiding the go_idle call altogether, unless the motion state is
-    // violated, by which, all bets are off.
-    if ((grbl.sys.state & (STATE_CYCLE | STATE_HOMING | STATE_JOG)) ||
-    		(grbl.sys.step_control & (STEP_CONTROL_EXECUTE_HOLD | STEP_CONTROL_EXECUTE_SYS_MOTION))) {
-          if (grbl.sys.state == STATE_HOMING) {
-            if (!grbl.sys_rt_exec_alarm) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_RESET); }
+        // Kill steppers only if in any motion state, i.e. cycle, actively holding, or homing.
+        // NOTE: If steppers are kept enabled via the step idle delay setting, this also keeps
+        // the steppers enabled by avoiding the go_idle call altogether, unless the motion state is
+        // violated, by which, all bets are off.
+        if ((grbl.sys.state & (STATE_CYCLE | STATE_HOMING | STATE_JOG)) ||
+            (grbl.sys.step_control & (STEP_CONTROL_EXECUTE_HOLD | STEP_CONTROL_EXECUTE_SYS_MOTION))) {
+            if (grbl.sys.state == STATE_HOMING) {
+                if (!grbl.sys_rt_exec_alarm) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_RESET); }
+            } else {
+                grbl.system.set_exec_alarm(EXEC_ALARM_ABORT_CYCLE);
+            }
+            grbl.steppers.go_idle(); // Force kill steppers. Position has likely been lost.
         }
-        else { system_set_exec_alarm(EXEC_ALARM_ABORT_CYCLE); }
-        grbl.steppers.go_idle(); // Force kill steppers. Position has likely been lost.
     }
-  }
 }

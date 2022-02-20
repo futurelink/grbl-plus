@@ -267,7 +267,7 @@ uint8_t GRBLSettings::store_global(uint8_t parameter, float value) {
             case 13:
                 if (int_value) { settings.flags |= BITFLAG_REPORT_INCHES; }
                 else { settings.flags &= ~BITFLAG_REPORT_INCHES; }
-                system_flag_wco_change(); // Make sure WCO is immediately updated.
+                grbl.system.flag_wco_change(); // Make sure WCO is immediately updated.
                 break;
             case 20:
                 if (int_value) {

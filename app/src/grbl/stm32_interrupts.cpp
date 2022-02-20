@@ -96,7 +96,7 @@ void USB_LP_CAN1_RX0_IRQHandler(void) {
 
 void EXTI9_5_IRQHandler(void) {
     __HAL_GPIO_EXTI_CLEAR_IT((1 << CONTROL_FEED_HOLD_BIT) | (1 << CONTROL_CYCLE_START_BIT) | (1 << CONTROL_SAFETY_DOOR_BIT));
-    system_external_interrupts_handle();
+    grbl.system.external_interrupts_handle();
     NVIC_ClearPendingIRQ(EXTI9_5_IRQn);
 }
 

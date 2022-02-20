@@ -224,7 +224,7 @@ void report_probe_parameters() {
     // Report in terms of machine position.
     printPgmString(PSTR("[PRB:"));
     float print_position[N_AXIS];
-    system_convert_array_steps_to_mpos(print_position,grbl.sys_probe_position);
+    grbl.system.convert_array_steps_to_mpos(print_position,grbl.sys_probe_position);
     report_util_axis_values(print_position);
     serial_write(':');
     print_uint8_base10(grbl.sys.probe_succeeded);
@@ -450,7 +450,7 @@ void report_realtime_status() {
   int32_t current_position[N_AXIS]; // Copy current state of the system position variable
   memcpy(current_position, grbl.sys_position, sizeof(grbl.sys_position));
   float print_position[N_AXIS];
-  system_convert_array_steps_to_mpos(print_position, current_position);
+  grbl.system.convert_array_steps_to_mpos(print_position, current_position);
 
   // Report current machine state and sub-states
   serial_write('<');
@@ -551,7 +551,7 @@ void report_realtime_status() {
 
 #ifdef REPORT_FIELD_PIN_STATE
   uint8_t lim_pin_state = grbl.limits.get_state();
-  uint8_t ctrl_pin_state = system_control_get_state();
+  uint8_t ctrl_pin_state = grbl.system.control_get_state();
   uint8_t prb_pin_state = grbl.probe.get_state();
   if (lim_pin_state | ctrl_pin_state | prb_pin_state) {
     printPgmString(PSTR("|Pn:"));

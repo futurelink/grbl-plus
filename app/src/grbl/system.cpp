@@ -22,14 +22,14 @@
 #include "grbl.h"
 #include "stm32_helpers.h"
 
-void system_init() {
+void GRBLSystem::init() {
     stm32_system_init();
 }
 
 // Returns control pin state as a uint8 bitfield. Each bit indicates the input pin state, where
 // triggered is 1 and not triggered is 0. Invert mask is applied. Bitfield organization is
 // defined by the CONTROL_PIN_INDEX in the header file.
-uint8_t system_control_get_state() {
+uint8_t GRBLSystem::control_get_state() {
     uint8_t control_state = 0;
     uint16_t pin = CONTROL_PIN_PORT->IDR & CONTROL_MASK;
 
@@ -51,8 +51,8 @@ uint8_t system_control_get_state() {
 // only the realtime command execute variable to have the main program execute these when
 // its ready. This works exactly like the character-based realtime commands when picked off
 // directly from the incoming serial data stream.
-void system_external_interrupts_handle() {
-    uint8_t pin = system_control_get_state();
+void GRBLSystem::external_interrupts_handle() {
+    uint8_t pin = control_get_state();
     if (pin) {
         if (bit_istrue(pin, CONTROL_PIN_INDEX_RESET)) {
             grbl.motion.reset();
@@ -73,7 +73,7 @@ void system_external_interrupts_handle() {
 }
 
 // Returns if safety door is ajar(T) or closed(F), based on pin state.
-uint8_t system_check_safety_door_ajar() {
+uint8_t GRBLSystem::check_safety_door_ajar() {
     #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
         return(system_control_get_state() & CONTROL_PIN_INDEX_SAFETY_DOOR);
     #else
@@ -82,7 +82,7 @@ uint8_t system_check_safety_door_ajar() {
 }
 
 // Executes user startup script, if stored.
-void system_execute_startup(char *line) {
+void GRBLSystem::execute_startup(char *line) {
     uint8_t n;
     for (n=0; n < N_STARTUP_LINE; n++) {
         if (!(grbl.settings.read_startup_line(n, line))) {
@@ -106,7 +106,7 @@ void system_execute_startup(char *line) {
 // the lines that are processed afterward, not necessarily real-time during a cycle,
 // since there are motions already stored in the buffer. However, this 'lag' should not
 // be an issue, since these commands are not typically used during a cycle.
-uint8_t system_execute_line(char *line) {
+uint8_t GRBLSystem::execute_line(char *line) {
     uint8_t char_counter = 1;
     uint8_t helper_var = 0; // Helper variable
     float parameter, value;
@@ -149,7 +149,7 @@ uint8_t system_execute_line(char *line) {
                     if (grbl.sys.state == STATE_ALARM) {
 
                         // Block if safety door is ajar.
-                        if (system_check_safety_door_ajar()) { return(STATUS_CHECK_DOOR); }
+                        if (check_safety_door_ajar()) { return(STATUS_CHECK_DOOR); }
 
                         report_feedback_message(MESSAGE_ALARM_UNLOCK);
                         grbl.sys.state = STATE_IDLE;
@@ -171,7 +171,7 @@ uint8_t system_execute_line(char *line) {
                 case 'H' : // Perform homing cycle [IDLE/ALARM]
                     if (bit_isfalse(grbl.settings.flags(),BITFLAG_HOMING_ENABLE)) {return(STATUS_SETTING_DISABLED); }
 
-                    if (system_check_safety_door_ajar()) { return(STATUS_CHECK_DOOR); } // Block if safety door is ajar.
+                    if (check_safety_door_ajar()) { return(STATUS_CHECK_DOOR); } // Block if safety door is ajar.
 
                     grbl.sys.state = STATE_HOMING; // Set system state variable
                     if (line[2] == 0) {
@@ -189,13 +189,13 @@ uint8_t system_execute_line(char *line) {
                     if (!grbl.sys.abort) {  // Execute startup scripts after successful homing.
                         grbl.sys.state = STATE_IDLE; // Set to IDLE when complete.
                         grbl.steppers.go_idle(); // Set steppers to the settings idle state before returning.
-                        if (line[2] == 0) { system_execute_startup(line); }
+                        if (line[2] == 0) { execute_startup(line); }
                     }
                     break;
 
                 case 'S' : // Puts Grbl to sleep [IDLE/ALARM]
                     if ((line[2] != 'L') || (line[3] != 'P') || (line[4] != 0)) { return(STATUS_INVALID_STATEMENT); }
-                    system_set_exec_state_flag(EXEC_SLEEP); // Set to execute sleep mode immediately
+                    set_exec_state_flag(EXEC_SLEEP); // Set to execute sleep mode immediately
                     break;
 
                 case 'I' : // Print or store build info. [IDLE/ALARM]
@@ -274,7 +274,7 @@ uint8_t system_execute_line(char *line) {
     return(STATUS_OK); // If '$' command makes it to here, then everything's ok.
 }
 
-void system_flag_wco_change() {
+void GRBLSystem::flag_wco_change() {
     #ifdef FORCE_BUFFER_SYNC_DURING_WCO_CHANGE
     protocol_buffer_synchronize();
     #endif
@@ -285,7 +285,7 @@ void system_flag_wco_change() {
 // Returns machine position of axis 'idx'. Must be sent a 'step' array.
 // NOTE: If motor steps and machine position are not in the same coordinate frame, this function
 //   serves as a central place to compute the transformation.
-float system_convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx) {
+float GRBLSystem::convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx) {
     float pos;
     #ifdef COREXY
     if (idx == X_AXIS) {
@@ -302,10 +302,10 @@ float system_convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx) {
 }
 
 
-void system_convert_array_steps_to_mpos(float *position, int32_t *steps) {
+void GRBLSystem::convert_array_steps_to_mpos(float *position, int32_t *steps) {
     uint8_t idx;
     for (idx=0; idx<N_AXIS; idx++) {
-        position[idx] = system_convert_axis_steps_to_mpos(steps, idx);
+        position[idx] = convert_axis_steps_to_mpos(steps, idx);
     }
 	return;
 }
@@ -313,18 +313,18 @@ void system_convert_array_steps_to_mpos(float *position, int32_t *steps) {
 
 // CoreXY calculation only. Returns x or y-axis "steps" based on CoreXY motor steps.
 #ifdef COREXY
-  int32_t system_convert_corexy_to_x_axis_steps(int32_t *steps)
+  int32_t GRBLSystem::convert_corexy_to_x_axis_steps(int32_t *steps)
   {
     return( (steps[A_MOTOR] + steps[B_MOTOR])/2 );
   }
-  int32_t system_convert_corexy_to_y_axis_steps(int32_t *steps)
+  int32_t GRBLSystem::convert_corexy_to_y_axis_steps(int32_t *steps)
   {
     return( (steps[A_MOTOR] - steps[B_MOTOR])/2 );
   }
 #endif
 
 // Checks and reports if target array exceeds machine travel limits.
-uint8_t system_check_travel_limits(float *target) {
+uint8_t GRBLSystem::check_travel_limits(float *target) {
     uint8_t idx;
     for (idx=0; idx<N_AXIS; idx++) {
         #ifdef HOMING_FORCE_SET_ORIGIN
@@ -344,49 +344,49 @@ uint8_t system_check_travel_limits(float *target) {
 }
 
 // Special handlers for setting and clearing Grbl's real-time execution flags.
-void system_set_exec_state_flag(uint8_t mask) {
+void GRBLSystem::set_exec_state_flag(uint8_t mask) {
     __disable_irq();
     grbl.sys_rt_exec_state |= (mask);
     __enable_irq();
 }
 
-void system_clear_exec_state_flag(uint8_t mask) {
+void GRBLSystem::clear_exec_state_flag(uint8_t mask) {
     __disable_irq();
     grbl.sys_rt_exec_state &= ~(mask);
     __enable_irq();
 }
 
-void system_set_exec_alarm(uint8_t code) {
+void GRBLSystem::set_exec_alarm(uint8_t code) {
     __disable_irq();
     grbl.sys_rt_exec_alarm |= (code);
     __enable_irq();
 }
 
-void system_clear_exec_alarm() {
+void GRBLSystem::clear_exec_alarm() {
     __disable_irq();
     grbl.sys_rt_exec_alarm = 0;
     __enable_irq();
 }
 
-void system_set_exec_motion_override_flag(uint8_t mask) {
+void GRBLSystem::set_exec_motion_override_flag(uint8_t mask) {
     __disable_irq();
     grbl.sys_rt_exec_motion_override |= (mask);
     __enable_irq();
 }
 
-void system_set_exec_accessory_override_flag(uint8_t mask) {
+void GRBLSystem::set_exec_accessory_override_flag(uint8_t mask) {
     __disable_irq();
     grbl.sys_rt_exec_accessory_override |= (mask);
     __enable_irq();
 }
 
-void system_clear_exec_motion_overrides() {
+void GRBLSystem::clear_exec_motion_overrides() {
     __disable_irq();
     grbl.sys_rt_exec_motion_override = 0;
     __enable_irq();
 }
 
-void system_clear_exec_accessory_overrides() {
+void GRBLSystem::clear_exec_accessory_overrides() {
     __disable_irq();
     grbl.sys_rt_exec_accessory_override = 0;
     __enable_irq();

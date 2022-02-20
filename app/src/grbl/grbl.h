@@ -58,6 +58,7 @@ class GRBLMain {
 public:
     uint16_t cnt;
 
+    GRBLSystem system;
     GRBLSettings settings;
     GRBLPlanner planner;
     GRBLSteppers steppers;

@@ -787,7 +787,7 @@ void GRBLSteppers::tim2_handler() {
             if (st.exec_block->is_pwm_rate_adjusted) { grbl.spindle.set_speed(SPINDLE_PWM_OFF_VALUE); }
 #endif
 
-            system_set_exec_state_flag(EXEC_CYCLE_STOP); // Flag main program for cycle end
+            grbl.system.set_exec_state_flag(EXEC_CYCLE_STOP); // Flag main program for cycle end
             return; // Nothing to do but exit.
         }
     }

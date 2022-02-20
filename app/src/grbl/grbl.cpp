@@ -12,7 +12,7 @@ GRBLMain::GRBLMain() {
     // Initialize system upon power-up.
     settings.init(); // Load Grbl settings from EEPROM
     steppers.init();  // Configure stepper pins and interrupt timers
-    system_init();   // Configure pinout pins and pin-change interrupt
+    system.init();   // Configure pinout pins and pin-change interrupt
 
     memset(sys_position, 0, sizeof(sys_position)); // Clear machine position.
 

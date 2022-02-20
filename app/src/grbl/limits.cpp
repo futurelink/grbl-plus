@@ -90,7 +90,7 @@ void GRBLLimits::external_interrupt_handle() {
             }
             #else
             grbl.motion.reset(); // Initiate system kill.
-            system_set_exec_alarm(EXEC_ALARM_HARD_LIMIT); // Indicate hard limit critical event
+            grbl.system.set_exec_alarm(EXEC_ALARM_HARD_LIMIT); // Indicate hard limit critical event
             #endif
         }
     }
@@ -163,7 +163,7 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
 
     uint8_t limit_state, axislock, n_active_axis;
     do {
-        system_convert_array_steps_to_mpos(target,grbl.sys_position);
+        grbl.system.convert_array_steps_to_mpos(target,grbl.sys_position);
 
         // Initialize and declare variables needed for homing routine.
         axislock = 0;
@@ -235,20 +235,20 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
             if (grbl.sys_rt_exec_state & (EXEC_SAFETY_DOOR | EXEC_RESET | EXEC_CYCLE_STOP)) {
                 uint8_t rt_exec = grbl.sys_rt_exec_state;
                 // Homing failure condition: Reset issued during cycle.
-                if (rt_exec & EXEC_RESET) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_RESET); }
+                if (rt_exec & EXEC_RESET) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_RESET); }
                 // Homing failure condition: Safety door was opened.
-                if (rt_exec & EXEC_SAFETY_DOOR) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_DOOR); }
+                if (rt_exec & EXEC_SAFETY_DOOR) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_DOOR); }
                 // Homing failure condition: Limit switch still engaged after pull-off motion
-                if (!approach && (get_state() & cycle_mask)) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_PULLOFF); }
+                if (!approach && (get_state() & cycle_mask)) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_PULLOFF); }
                 // Homing failure condition: Limit switch not found during approach.
-                if (approach && (rt_exec & EXEC_CYCLE_STOP)) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_APPROACH); }
+                if (approach && (rt_exec & EXEC_CYCLE_STOP)) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_APPROACH); }
                 if (grbl.sys_rt_exec_alarm) {
                     grbl.motion.reset(); // Stop motors, if they are running.
                     protocol_execute_realtime();
                     return;
                 } else {
                     // Pull-off motion complete. Disable CYCLE_STOP from executing.
-                    system_clear_exec_state_flag(EXEC_CYCLE_STOP);
+                    grbl.system.clear_exec_state_flag(EXEC_CYCLE_STOP);
                     break;
                 }
             }
@@ -318,20 +318,20 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
 // the workspace volume is in all negative space, and the system is in normal operation.
 // NOTE: Used by jogging to limit travel within soft-limit volume.
 void GRBLLimits::soft_check(float *target) {
-    if (system_check_travel_limits(target)) {
+    if (grbl.system.check_travel_limits(target)) {
         grbl.sys.soft_limit = true;
         // Force feed hold if cycle is active. All buffered blocks are guaranteed to be within
         // workspace volume so just come to a controlled stop so position is not lost. When complete
         // enter alarm mode.
         if (grbl.sys.state == STATE_CYCLE) {
-            system_set_exec_state_flag(EXEC_FEED_HOLD);
+            grbl.system.set_exec_state_flag(EXEC_FEED_HOLD);
             do {
                 protocol_execute_realtime();
                 if (grbl.sys.abort) { return; }
             } while (grbl.sys.state != STATE_IDLE);
         }
         grbl.motion.reset(); // Issue system reset and ensure spindle and coolant are shutdown.
-        system_set_exec_alarm(EXEC_ALARM_SOFT_LIMIT); // Indicate soft limit critical event
+        grbl.system.set_exec_alarm(EXEC_ALARM_SOFT_LIMIT); // Indicate soft limit critical event
         protocol_execute_realtime(); // Execute to enter critical event loop and system abort
         return;
     }

@@ -155,56 +155,59 @@ typedef struct {
 extern volatile uint8_t sys_rt_exec_debug;
 #endif
 
-// Initialize the serial protocol
-void system_init();
+class GRBLSystem {
+public:
+    // Initialize the serial protocol
+    void init();
 
-// Returns bitfield of control pin states, organized by CONTROL_PIN_INDEX. (1=triggered, 0=not triggered).
-uint8_t system_control_get_state();
+    // Returns bitfield of control pin states, organized by CONTROL_PIN_INDEX. (1=triggered, 0=not triggered).
+    uint8_t control_get_state();
 
-// Returns if safety door is open or closed, based on pin state.
-uint8_t system_check_safety_door_ajar();
+    // Returns if safety door is open or closed, based on pin state.
+    uint8_t check_safety_door_ajar();
 
-// Executes an internal system command, defined as a string starting with a '$'
-uint8_t system_execute_line(char *line);
+    // Executes an internal system command, defined as a string starting with a '$'
+    uint8_t execute_line(char *line);
 
-// Execute the startup script lines stored in EEPROM upon initialization
-void system_execute_startup(char *line);
+    // Execute the startup script lines stored in EEPROM upon initialization
+    void execute_startup(char *line);
 
-void system_flag_wco_change();
+    void flag_wco_change();
 
-// Returns machine position of axis 'idx'. Must be sent a 'step' array.
-float system_convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx);
+    // Returns machine position of axis 'idx'. Must be sent a 'step' array.
+    float convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx);
 
-// Updates a machine 'position' array based on the 'step' array sent.
-void system_convert_array_steps_to_mpos(float *position, int32_t *steps);
+    // Updates a machine 'position' array based on the 'step' array sent.
+    void convert_array_steps_to_mpos(float *position, int32_t *steps);
 
-// CoreXY calculation only. Returns x or y-axis "steps" based on CoreXY motor steps.
+    // CoreXY calculation only. Returns x or y-axis "steps" based on CoreXY motor steps.
 #ifdef COREXY
-int32_t system_convert_corexy_to_x_axis_steps(int32_t *steps);
-int32_t system_convert_corexy_to_y_axis_steps(int32_t *steps);
+    int32_t convert_corexy_to_x_axis_steps(int32_t *steps);
+    int32_t convert_corexy_to_y_axis_steps(int32_t *steps);
 #endif
 
-// Checks and reports if target array exceeds machine travel limits.
-uint8_t system_check_travel_limits(float *target);
+    // Checks and reports if target array exceeds machine travel limits.
+    uint8_t check_travel_limits(float *target);
 
-// Special handlers for setting and clearing Grbl's real-time execution flags.
-void system_set_exec_state_flag(uint8_t mask);
+    // Special handlers for setting and clearing Grbl's real-time execution flags.
+    void set_exec_state_flag(uint8_t mask);
 
-void system_clear_exec_state_flag(uint8_t mask);
+    void clear_exec_state_flag(uint8_t mask);
 
-void system_set_exec_alarm(uint8_t code);
+    void set_exec_alarm(uint8_t code);
 
-void system_clear_exec_alarm();
+    void clear_exec_alarm();
 
-void system_set_exec_motion_override_flag(uint8_t mask);
+    void set_exec_motion_override_flag(uint8_t mask);
 
-void system_set_exec_accessory_override_flag(uint8_t mask);
+    void set_exec_accessory_override_flag(uint8_t mask);
 
-void system_clear_exec_motion_overrides();
+    void clear_exec_motion_overrides();
 
-void system_clear_exec_accessory_overrides();
+    void clear_exec_accessory_overrides();
 
-void system_external_interrupts_handle();
+    void external_interrupts_handle();
+};
 
 #ifdef __cplusplus
 }

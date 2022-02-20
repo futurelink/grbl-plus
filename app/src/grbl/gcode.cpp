@@ -44,7 +44,7 @@ void GRBLCode::init() {
 // Sets g-code parser position in mm. Input in steps. Called by the system abort and hard
 // limit pull-off routines.
 void GRBLCode::sync_position() {
-  system_convert_array_steps_to_mpos(state.position,grbl.sys_position);
+    grbl.system.convert_array_steps_to_mpos(state.position,grbl.sys_position);
 }
 
 // Executes one line of 0-terminated G-Code. The line is assumed to contain only uppercase
@@ -981,8 +981,8 @@ uint8_t GRBLCode::execute_line(char *line)
       block.values.xyz[TOOL_LENGTH_OFFSET_AXIS] = 0.0f;
     } // else G43.1
     if ( state.tool_length_offset != block.values.xyz[TOOL_LENGTH_OFFSET_AXIS] ) {
-      state.tool_length_offset = block.values.xyz[TOOL_LENGTH_OFFSET_AXIS];
-      system_flag_wco_change();
+        state.tool_length_offset = block.values.xyz[TOOL_LENGTH_OFFSET_AXIS];
+        grbl.system.flag_wco_change();
     }
   }
 
@@ -990,7 +990,7 @@ uint8_t GRBLCode::execute_line(char *line)
   if (state.modal.coord_select != block.modal.coord_select) {
     state.modal.coord_select = block.modal.coord_select;
     memcpy(state.coord_system,block_coord_system,N_AXIS*sizeof(float));
-    system_flag_wco_change();
+      grbl.system.flag_wco_change();
   }
 
   // [16. Set path control mode ]: G61.1/G64 NOT SUPPORTED
@@ -1007,8 +1007,8 @@ uint8_t GRBLCode::execute_line(char *line)
       grbl.settings.write_coord_data(coord_select,block.values.ijk);
       // Update system coordinate system if currently active.
       if (state.modal.coord_select == coord_select) {
-        memcpy(state.coord_system,block.values.ijk,N_AXIS*sizeof(float));
-        system_flag_wco_change();
+          memcpy(state.coord_system,block.values.ijk,N_AXIS*sizeof(float));
+          grbl.system.flag_wco_change();
       }
       break;
     case NON_MODAL_GO_HOME_0: case NON_MODAL_GO_HOME_1:
@@ -1026,12 +1026,12 @@ uint8_t GRBLCode::execute_line(char *line)
         grbl.settings.write_coord_data(SETTING_INDEX_G30,state.position);
       break;
     case NON_MODAL_SET_COORDINATE_OFFSET:
-      memcpy(state.coord_offset,block.values.xyz,sizeof(block.values.xyz));
-      system_flag_wco_change();
+          memcpy(state.coord_offset,block.values.xyz,sizeof(block.values.xyz));
+          grbl.system.flag_wco_change();
       break;
     case NON_MODAL_RESET_COORDINATE_OFFSET:
-      clear_vector(state.coord_offset); // Disable G92 offsets by zeroing offset vector.
-      system_flag_wco_change();
+          clear_vector(state.coord_offset); // Disable G92 offsets by zeroing offset vector.
+          grbl.system.flag_wco_change();
       break;
   }
 
@@ -1080,8 +1080,8 @@ uint8_t GRBLCode::execute_line(char *line)
     protocol_buffer_synchronize(); // Sync and finish all remaining buffered motions before moving on.
     if (state.modal.program_flow == PROGRAM_FLOW_PAUSED) {
       if (grbl.sys.state != STATE_CHECK_MODE) {
-        system_set_exec_state_flag(EXEC_FEED_HOLD); // Use feed hold for program pause.
-        protocol_execute_realtime(); // Execute suspend.
+          grbl.system.set_exec_state_flag(EXEC_FEED_HOLD); // Use feed hold for program pause.
+          protocol_execute_realtime(); // Execute suspend.
       }
     } else { // == PROGRAM_FLOW_COMPLETED
       // Upon program complete, only a subset of g-codes reset to certain defaults, according to
@@ -1113,7 +1113,7 @@ uint8_t GRBLCode::execute_line(char *line)
         // Execute coordinate change and spindle/coolant stop.
         if (grbl.sys.state != STATE_CHECK_MODE) {
             if (!(grbl.settings.read_coord_data(state.modal.coord_select,state.coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
-            system_flag_wco_change(); // Set to refresh immediately just in case something altered.
+            grbl.system.flag_wco_change(); // Set to refresh immediately just in case something altered.
             grbl.spindle.set_state(SPINDLE_DISABLE,0.0f);
             grbl.coolant.set_state(COOLANT_DISABLE);
         }
