@@ -600,7 +600,7 @@ void report_realtime_status() {
       print_uint8_base10(grbl.sys.spindle_speed_ovr);
 
       uint8_t sp_state = grbl.spindle.get_state();
-      uint8_t cl_state = coolant_get_state();
+      uint8_t cl_state = grbl.coolant.get_state();
       if (sp_state || cl_state) {
         printPgmString(PSTR("|A:"));
         if (sp_state) { // != SPINDLE_STATE_DISABLE

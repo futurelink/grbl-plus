@@ -32,21 +32,23 @@ extern "C" {
 #define COOLANT_STATE_FLOOD     bit(0)
 #define COOLANT_STATE_MIST      bit(1)
 
+class GRBLCoolant {
+public:
+    // Initializes coolant control pins.
+    static void init();
 
-// Initializes coolant control pins.
-void coolant_init();
+    // Returns current coolant output state. Overrides may alter it from programmed state.
+    static uint8_t get_state();
 
-// Returns current coolant output state. Overrides may alter it from programmed state.
-uint8_t coolant_get_state();
+    // Immediately disables coolant pins.
+    static void stop();
 
-// Immediately disables coolant pins.
-void coolant_stop();
+    // Sets the coolant pins according to state specified.
+    static void set_state(uint8_t mode);
 
-// Sets the coolant pins according to state specified.
-void coolant_set_state(uint8_t mode);
-
-// G-code parser entry-point for setting coolant states. Checks for and executes additional conditions.
-void coolant_sync(uint8_t mode);
+    // G-code parser entry-point for setting coolant states. Checks for and executes additional conditions.
+    static void sync(uint8_t mode);
+};
 
 #ifdef __cplusplus
 }

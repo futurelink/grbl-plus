@@ -473,7 +473,7 @@ void protocol_exec_rt_system()
           if (coolant_state & COOLANT_FLOOD_ENABLE) { bit_false(coolant_state,COOLANT_FLOOD_ENABLE); }
           else { coolant_state |= COOLANT_FLOOD_ENABLE; }
         #endif
-        coolant_set_state(coolant_state); // Report counter set in coolant_set_state().
+        grbl.coolant.set_state(coolant_state); // Report counter set in coolant_set_state().
         gc_state.modal.coolant = coolant_state;
       }
     }
@@ -553,7 +553,7 @@ static void protocol_exec_rt_suspend()
 
                 #ifndef PARKING_ENABLE
                 grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
-                coolant_set_state(COOLANT_DISABLE);     // De-energize
+                grbl.coolant.set_state(COOLANT_DISABLE);     // De-energize
 
                 #else
                 // Get current position and store restore location and spindle retract waypoint.
@@ -618,7 +618,7 @@ static void protocol_exec_rt_suspend()
                     report_feedback_message(MESSAGE_SLEEP_MODE);
                     // Spindle and coolant should already be stopped, but do it again just to be sure.
                     grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
-                    coolant_set_state(COOLANT_DISABLE); // De-energize
+                    grbl.coolant.set_state(COOLANT_DISABLE); // De-energize
                     grbl.steppers.go_idle(); // Disable steppers
                     while (!(grbl.sys.abort)) { protocol_exec_rt_system(); } // Do nothing until reset.
                         return; // Abort received. Return to re-initialize.
@@ -667,7 +667,7 @@ static void protocol_exec_rt_suspend()
                             // Block if safety door re-opened during prior restore actions.
                             if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
                                 // NOTE: Laser mode will honor this delay. An exhaust system is often controlled by this pin.
-                                coolant_set_state((restore_condition & (PL_COND_FLAG_COOLANT_FLOOD | PL_COND_FLAG_COOLANT_FLOOD)));
+                                grbl.coolant.set_state((restore_condition & (PL_COND_FLAG_COOLANT_FLOOD | PL_COND_FLAG_COOLANT_FLOOD)));
                                 delay_sec(SAFETY_DOOR_COOLANT_DELAY, DELAY_MODE_SYS_SUSPEND);
                             }
                         }

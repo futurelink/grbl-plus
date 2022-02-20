@@ -64,6 +64,7 @@ public:
     GRBLSpindle spindle;
     GRBLMotion motion;
     GRBLProbe probe;
+    GRBLCoolant coolant;
 
     // Declare system global variable structure
     system_t sys;

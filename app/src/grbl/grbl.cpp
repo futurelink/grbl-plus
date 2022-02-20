@@ -60,7 +60,7 @@ void GRBLMain::run() {
         serial_reset_read_buffer(); // Clear serial read buffer
         gc_init(); // Set g-code parser to default state
         spindle.init();
-        coolant_init();
+        coolant.init();
         limits_init();
         probe.init();
         planner.reset(); // Clear block buffer and planner variables

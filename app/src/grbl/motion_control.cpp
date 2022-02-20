@@ -364,7 +364,7 @@ void GRBLMotion::reset() {
 
     // Kill spindle and coolant.
     grbl.spindle.stop();
-    coolant_stop();
+    grbl.coolant.stop();
 
     // Kill steppers only if in any motion state, i.e. cycle, actively holding, or homing.
     // NOTE: If steppers are kept enabled via the step idle delay setting, this also keeps

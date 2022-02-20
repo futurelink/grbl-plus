@@ -951,7 +951,7 @@ uint8_t gc_execute_line(char *line)
   if (gc_state.modal.coolant != gc_block.modal.coolant) {
     // NOTE: Coolant M-codes are modal. Only one command per line is allowed. But, multiple states
     // can exist at the same time, while coolant disable clears all states.
-    coolant_sync(gc_block.modal.coolant);
+    grbl.coolant.sync(gc_block.modal.coolant);
     if (gc_block.modal.coolant == COOLANT_DISABLE) { gc_state.modal.coolant = COOLANT_DISABLE; }
     else { gc_state.modal.coolant |= gc_block.modal.coolant; }
   }
@@ -1121,7 +1121,7 @@ uint8_t gc_execute_line(char *line)
             if (!(grbl.settings.read_coord_data(gc_state.modal.coord_select,gc_state.coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
             system_flag_wco_change(); // Set to refresh immediately just in case something altered.
             grbl.spindle.set_state(SPINDLE_DISABLE,0.0f);
-            coolant_set_state(COOLANT_DISABLE);
+            grbl.coolant.set_state(COOLANT_DISABLE);
         }
         report_feedback_message(MESSAGE_PROGRAM_END);
     }
