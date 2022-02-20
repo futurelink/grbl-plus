@@ -66,6 +66,7 @@ public:
     GRBLProbe probe;
     GRBLCoolant coolant;
     GRBLCode gcode;
+    GRBLLimits limits;
 
     // Declare system global variable structure
     system_t sys;

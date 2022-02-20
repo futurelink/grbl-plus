@@ -38,7 +38,7 @@ void protocol_main_loop() {
     // Perform some machine checks to make sure everything is good to go.
     #ifdef CHECK_LIMITS_AT_INIT
     if (bit_istrue(grbl.settings.flags(), BITFLAG_HARD_LIMIT_ENABLE)) {
-        if (limits_get_state()) {
+        if (grbl.limits.get_state()) {
             grbl.sys.state = STATE_ALARM; // Ensure alarm state is active.
             report_feedback_message(MESSAGE_CHECK_LIMITS);
         }

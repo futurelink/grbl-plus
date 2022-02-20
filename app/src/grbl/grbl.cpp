@@ -61,7 +61,7 @@ void GRBLMain::run() {
         gcode.init(); // Set g-code parser to default state
         spindle.init();
         coolant.init();
-        limits_init();
+        limits.init();
         probe.init();
         planner.reset(); // Clear block buffer and planner variables
         steppers.reset(); // Clear stepper subsystem variables.

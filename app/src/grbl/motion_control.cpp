@@ -36,7 +36,7 @@ void GRBLMotion::line(float *target, plan_line_data_t *pl_data)
   // from everywhere in Grbl.
   if (bit_istrue(grbl.settings.flags(), BITFLAG_SOFT_LIMIT_ENABLE)) {
     // NOTE: Block jog state. Jogging is a special case and soft limits are handled independently.
-    if (grbl.sys.state != STATE_JOG) { limits_soft_check(target); }
+    if (grbl.sys.state != STATE_JOG) { grbl.limits.soft_check(target); }
   }
 
   // If in check gcode mode, prevent motion by blocking planner. Soft limits still work.
@@ -215,7 +215,7 @@ void GRBLMotion::homing_cycle(uint8_t cycle_mask) {
     }
     #endif
 
-    limits_disable(); // Disable hard limits pin change register for cycle duration
+    grbl.limits.disable(); // Disable hard limits pin change register for cycle duration
 
     // -------------------------------------------------------------------------------------
     // Perform homing routine. NOTE: Special motion case. Only system reset works.
@@ -225,9 +225,9 @@ void GRBLMotion::homing_cycle(uint8_t cycle_mask) {
     #endif
     {
         // Search to engage all axes limit switches at faster homing seek rate.
-        limits_go_home(HOMING_CYCLE_0);  // Homing cycle 0
+        grbl.limits.go_home(HOMING_CYCLE_0);  // Homing cycle 0
         #ifdef HOMING_CYCLE_1
-        limits_go_home(HOMING_CYCLE_1);  // Homing cycle 1
+        grbl.limits.go_home(HOMING_CYCLE_1);  // Homing cycle 1
         #endif
         #ifdef HOMING_CYCLE_2
         limits_go_home(HOMING_CYCLE_2);  // Homing cycle 2

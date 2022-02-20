@@ -102,7 +102,7 @@ void EXTI9_5_IRQHandler(void) {
 
 void EXTI15_10_IRQHandler(void) {
     stm32_limits_clear();
-    limits_external_interrupt_handle();
+    grbl.limits.external_interrupt_handle();
 }
 
 void TIM2_IRQHandler() {

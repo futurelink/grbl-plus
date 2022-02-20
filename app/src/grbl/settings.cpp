@@ -278,7 +278,7 @@ uint8_t GRBLSettings::store_global(uint8_t parameter, float value) {
             case 21:
                 if (int_value) { settings.flags |= BITFLAG_HARD_LIMIT_ENABLE; }
                 else { settings.flags &= ~BITFLAG_HARD_LIMIT_ENABLE; }
-                limits_init(); // Re-init to immediately change. NOTE: Nice to have but could be problematic later.
+                grbl.limits.init(); // Re-init to immediately change. NOTE: Nice to have but could be problematic later.
                 break;
             case 22:
                 if (int_value) { settings.flags |= BITFLAG_HOMING_ENABLE; }

@@ -31,19 +31,19 @@
   #define HOMING_AXIS_LOCATE_SCALAR  5.0f // Must be > 1 to ensure limit switch is cleared.
 #endif
 
-void limits_init() {
+void GRBLLimits::init() {
     stm32_limits_init();
 }
 
 // Disables hard limits.
-void limits_disable() {
+void GRBLLimits::disable() {
     stm32_limits_disable();
 }
 
 // Returns limit state as a bit-wise uint8 variable. Each bit indicates an axis limit, where
 // triggered is 1 and not triggered is 0. Invert mask is applied. Axes are defined by their
 // number in bit position, i.e. Z_AXIS is (1<<2) or bit 2, and Y_AXIS is (1<<1) or bit 1.
-uint8_t limits_get_state() {
+uint8_t GRBLLimits::get_state() {
     uint8_t limit_state = 0;
     uint16_t pin = (LIMIT_PORT->IDR & LIMIT_MASK);
 
@@ -74,7 +74,7 @@ uint8_t limits_get_state() {
 // special pinout for an e-stop, but it is generally recommended to just directly connect
 // your e-stop switch to the Arduino reset pin, since it is the most correct way to do this.
 #ifndef ENABLE_SOFTWARE_DEBOUNCE
-void limits_external_interrupt_handle() {
+void GRBLLimits::external_interrupt_handle() {
     // Ignore limit switches if already in an alarm state or in-process of executing an alarm.
     // When in the alarm state, Grbl should have been reset or will force a reset, so any pending
     // moves in the planner and serial buffers are all cleared and newly sent blocks will be
@@ -125,7 +125,7 @@ ISR(WDT_vect) // Watchdog timer ISR
 // circumvent the processes for executing motions in normal operation.
 // NOTE: Only the abort realtime command can interrupt this process.
 // TODO: Move limit pin-specific calls to a general function for portability.
-void limits_go_home(uint8_t cycle_mask) {
+void GRBLLimits::go_home(uint8_t cycle_mask) {
     if (grbl.sys.abort) { return; } // Block if system reset has been issued.
 
     // Initialize plan data struct for homing motion. Spindle and coolant are disabled.
@@ -214,7 +214,7 @@ void limits_go_home(uint8_t cycle_mask) {
         do {
             if (approach) {
                 // Check limit state. Lock out cycle axes when they change.
-                limit_state = limits_get_state();
+                limit_state = get_state();
                 for (idx=0; idx<N_AXIS; idx++) {
                     if (axislock & step_pin[idx]) {
                         if (limit_state & (1 << idx)) {
@@ -239,7 +239,7 @@ void limits_go_home(uint8_t cycle_mask) {
                 // Homing failure condition: Safety door was opened.
                 if (rt_exec & EXEC_SAFETY_DOOR) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_DOOR); }
                 // Homing failure condition: Limit switch still engaged after pull-off motion
-                if (!approach && (limits_get_state() & cycle_mask)) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_PULLOFF); }
+                if (!approach && (get_state() & cycle_mask)) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_PULLOFF); }
                 // Homing failure condition: Limit switch not found during approach.
                 if (approach && (rt_exec & EXEC_CYCLE_STOP)) { system_set_exec_alarm(EXEC_ALARM_HOMING_FAIL_APPROACH); }
                 if (grbl.sys_rt_exec_alarm) {
@@ -317,7 +317,7 @@ void limits_go_home(uint8_t cycle_mask) {
 // Performs a soft limit check. Called from mc_line() only. Assumes the machine has been homed,
 // the workspace volume is in all negative space, and the system is in normal operation.
 // NOTE: Used by jogging to limit travel within soft-limit volume.
-void limits_soft_check(float *target) {
+void GRBLLimits::soft_check(float *target) {
     if (system_check_travel_limits(target)) {
         grbl.sys.soft_limit = true;
         // Force feed hold if cycle is active. All buffered blocks are guaranteed to be within
