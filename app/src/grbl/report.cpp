@@ -252,11 +252,11 @@ void report_ngc_parameters() {
     }
 
     printPgmString(PSTR("[G92:")); // Print G92,G92.1 which are not persistent in memory
-    report_util_axis_values(gc_state.coord_offset);
+    report_util_axis_values(grbl.gcode.state.coord_offset);
     report_util_feedback_line_feed();
 
     printPgmString(PSTR("[TLO:")); // Print tool length offset value
-    printFloat_CoordValue(gc_state.tool_length_offset);
+    printFloat_CoordValue(grbl.gcode.state.tool_length_offset);
     report_util_feedback_line_feed();
     report_probe_parameters(); // Print probe parameters. Not persistent in memory.
 }
@@ -264,42 +264,42 @@ void report_ngc_parameters() {
 // Print current gcode parser mode state
 void report_gcode_modes() {
     printPgmString(PSTR("[GC:G"));
-    if (gc_state.modal.motion >= MOTION_MODE_PROBE_TOWARD) {
+    if (grbl.gcode.state.modal.motion >= MOTION_MODE_PROBE_TOWARD) {
         printPgmString(PSTR("38."));
-        print_uint8_base10(gc_state.modal.motion - (MOTION_MODE_PROBE_TOWARD-2));
+        print_uint8_base10(grbl.gcode.state.modal.motion - (MOTION_MODE_PROBE_TOWARD-2));
     } else {
-        print_uint8_base10(gc_state.modal.motion);
+        print_uint8_base10(grbl.gcode.state.modal.motion);
     }
 
     report_util_gcode_modes_G();
-    print_uint8_base10(gc_state.modal.coord_select+54);
+    print_uint8_base10(grbl.gcode.state.modal.coord_select+54);
 
     report_util_gcode_modes_G();
-    print_uint8_base10(gc_state.modal.plane_select+17);
+    print_uint8_base10(grbl.gcode.state.modal.plane_select+17);
 
     report_util_gcode_modes_G();
-    print_uint8_base10(21-gc_state.modal.units);
+    print_uint8_base10(21-grbl.gcode.state.modal.units);
 
     report_util_gcode_modes_G();
-    print_uint8_base10(gc_state.modal.distance+90);
+    print_uint8_base10(grbl.gcode.state.modal.distance+90);
 
     report_util_gcode_modes_G();
-    print_uint8_base10(94-gc_state.modal.feed_rate);
+    print_uint8_base10(94-grbl.gcode.state.modal.feed_rate);
 
-    if (gc_state.modal.program_flow) {
+    if (grbl.gcode.state.modal.program_flow) {
         report_util_gcode_modes_M();
-        switch (gc_state.modal.program_flow) {
+        switch (grbl.gcode.state.modal.program_flow) {
             case PROGRAM_FLOW_PAUSED : serial_write('0'); break;
             // case PROGRAM_FLOW_OPTIONAL_STOP : serial_write('1'); break; // M1 is ignored and not supported.
             case PROGRAM_FLOW_COMPLETED_M2 :
             case PROGRAM_FLOW_COMPLETED_M30 :
-                print_uint8_base10(gc_state.modal.program_flow);
+                print_uint8_base10(grbl.gcode.state.modal.program_flow);
                 break;
         }
     }
 
     report_util_gcode_modes_M();
-    switch (gc_state.modal.spindle) {
+    switch (grbl.gcode.state.modal.spindle) {
         case SPINDLE_ENABLE_CW : serial_write('3'); break;
         case SPINDLE_ENABLE_CCW : serial_write('4'); break;
         case SPINDLE_DISABLE : serial_write('5'); break;
@@ -313,7 +313,7 @@ void report_gcode_modes() {
     } else { report_util_gcode_modes_M(); serial_write('9'); }
     #else
         report_util_gcode_modes_M();
-        if (gc_state.modal.coolant) { serial_write('8'); }
+        if (grbl.gcode.state.modal.coolant) { serial_write('8'); }
         else { serial_write('9'); }
     #endif
 
@@ -325,14 +325,14 @@ void report_gcode_modes() {
 	#endif
 
     printPgmString(PSTR(" T"));
-    print_uint8_base10(gc_state.tool);
+    print_uint8_base10(grbl.gcode.state.tool);
 
     printPgmString(PSTR(" F"));
-    printFloat_RateValue(gc_state.feed_rate);
+    printFloat_RateValue(grbl.gcode.state.feed_rate);
 
     #ifdef VARIABLE_SPINDLE
     printPgmString(PSTR(" S"));
-    printFloat(gc_state.spindle_speed,N_DECIMAL_RPMVALUE);
+    printFloat(grbl.gcode.state.spindle_speed,N_DECIMAL_RPMVALUE);
     #endif
 
     report_util_feedback_line_feed();
@@ -495,8 +495,8 @@ void report_realtime_status() {
     (grbl.sys.report_wco_counter == 0)) {
     for (idx = 0; idx< N_AXIS; idx++) {
       // Apply work coordinate offsets and tool length offset to current position.
-      wco[idx] = gc_state.coord_system[idx] + gc_state.coord_offset[idx];
-      if (idx == TOOL_LENGTH_OFFSET_AXIS) { wco[idx] += gc_state.tool_length_offset; }
+      wco[idx] = grbl.gcode.state.coord_system[idx] + grbl.gcode.state.coord_offset[idx];
+      if (idx == TOOL_LENGTH_OFFSET_AXIS) { wco[idx] += grbl.gcode.state.tool_length_offset; }
       if (bit_isfalse(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE)) {
         print_position[idx] -= wco[idx];
       }

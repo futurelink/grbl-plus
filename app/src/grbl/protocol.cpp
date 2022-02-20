@@ -103,7 +103,7 @@ void protocol_main_loop() {
                     report_status_message(STATUS_SYSTEM_GC_LOCK);
                 } else {
                     // Parse and execute g-code block.
-                    report_status_message(gc_execute_line(line));
+                    report_status_message(grbl.gcode.execute_line(line));
                 }
 
                 // Reset tracking data for next line.
@@ -382,7 +382,7 @@ void protocol_exec_rt_system()
             grbl.sys.step_control = STEP_CONTROL_NORMAL_OP;
             grbl.planner.reset();
             grbl.steppers.reset();
-            gc_sync_position();
+            grbl.gcode.sync_position();
             grbl.planner.sync_position();
         }
         if (grbl.sys.suspend & SUSPEND_SAFETY_DOOR_AJAR) { // Only occurs when safety door opens during jog.
@@ -459,7 +459,7 @@ void protocol_exec_rt_system()
     // run state can be determined by checking the parser state.
     if (rt_exec & (EXEC_COOLANT_FLOOD_OVR_TOGGLE | EXEC_COOLANT_MIST_OVR_TOGGLE)) {
       if ((grbl.sys.state == STATE_IDLE) || (grbl.sys.state & (STATE_CYCLE | STATE_HOLD))) {
-        uint8_t coolant_state = gc_state.modal.coolant;
+        uint8_t coolant_state = grbl.gcode.state.modal.coolant;
         #ifdef ENABLE_M7
           if (rt_exec & EXEC_COOLANT_MIST_OVR_TOGGLE) {
             if (coolant_state & COOLANT_MIST_ENABLE) { bit_false(coolant_state,COOLANT_MIST_ENABLE); }
@@ -473,8 +473,8 @@ void protocol_exec_rt_system()
           if (coolant_state & COOLANT_FLOOD_ENABLE) { bit_false(coolant_state,COOLANT_FLOOD_ENABLE); }
           else { coolant_state |= COOLANT_FLOOD_ENABLE; }
         #endif
-        grbl.coolant.set_state(coolant_state); // Report counter set in coolant_set_state().
-        gc_state.modal.coolant = coolant_state;
+          grbl.coolant.set_state(coolant_state); // Report counter set in coolant_set_state().
+          grbl.gcode.state.modal.coolant = coolant_state;
       }
     }
   }
@@ -519,8 +519,8 @@ static void protocol_exec_rt_suspend()
   #ifdef VARIABLE_SPINDLE
     float restore_spindle_speed;
     if (block == NULL) {
-      restore_condition = (gc_state.modal.spindle | gc_state.modal.coolant);
-      restore_spindle_speed = gc_state.spindle_speed;
+      restore_condition = (grbl.gcode.state.modal.spindle | grbl.gcode.state.modal.coolant);
+      restore_spindle_speed = grbl.gcode.state.spindle_speed;
     } else {
       restore_condition = block->condition;
       restore_spindle_speed = block->spindle_speed;
@@ -651,7 +651,7 @@ static void protocol_exec_rt_suspend()
               }
                         #endif
                         // Delayed Tasks: Restart spindle and coolant, delay to power-up, then resume cycle.
-                        if (gc_state.modal.spindle != SPINDLE_DISABLE) {
+                        if (grbl.gcode.state.modal.spindle != SPINDLE_DISABLE) {
                             // Block if safety door re-opened during prior restore actions.
                             if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
                                 if (bit_istrue(grbl.settings.flags(),BITFLAG_LASER_MODE)) {
@@ -663,7 +663,7 @@ static void protocol_exec_rt_suspend()
                                 }
                             }
                         }
-                        if (gc_state.modal.coolant != COOLANT_DISABLE) {
+                        if (grbl.gcode.state.modal.coolant != COOLANT_DISABLE) {
                             // Block if safety door re-opened during prior restore actions.
                             if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
                                 // NOTE: Laser mode will honor this delay. An exhaust system is often controlled by this pin.
@@ -703,7 +703,7 @@ static void protocol_exec_rt_suspend()
                 if (grbl.sys.spindle_stop_ovr) {
                     // Handles beginning of spindle stop
                     if (grbl.sys.spindle_stop_ovr & SPINDLE_STOP_OVR_INITIATE) {
-                        if (gc_state.modal.spindle != SPINDLE_DISABLE) {
+                        if (grbl.gcode.state.modal.spindle != SPINDLE_DISABLE) {
                             grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
                             grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_ENABLED; // Set stop override state to enabled, if de-energized.
                         } else {
@@ -711,7 +711,7 @@ static void protocol_exec_rt_suspend()
                         }
                     // Handles restoring of spindle state
                     } else if (grbl.sys.spindle_stop_ovr & (SPINDLE_STOP_OVR_RESTORE | SPINDLE_STOP_OVR_RESTORE_CYCLE)) {
-                        if (gc_state.modal.spindle != SPINDLE_DISABLE) {
+                        if (grbl.gcode.state.modal.spindle != SPINDLE_DISABLE) {
                             report_feedback_message(MESSAGE_SPINDLE_RESTORE);
                             if (bit_istrue(grbl.settings.flags(), BITFLAG_LASER_MODE)) {
                                 // When in laser mode, ignore spindle spin-up delay. Set to turn on laser when cycle starts.

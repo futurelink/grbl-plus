@@ -90,7 +90,7 @@ void system_execute_startup(char *line) {
             report_execute_startup_message(line,STATUS_SETTING_READ_FAIL);
         } else {
             if (line[0] != 0) {
-                uint8_t status_code = gc_execute_line(line);
+                uint8_t status_code = grbl.gcode.execute_line(line);
                 report_execute_startup_message(line,status_code);
             }
         }
@@ -119,7 +119,7 @@ uint8_t system_execute_line(char *line) {
             // Execute only if in IDLE or JOG states.
             if (grbl.sys.state != STATE_IDLE && grbl.sys.state != STATE_JOG) { return(STATUS_IDLE_ERROR); }
             if(line[2] != '=') { return(STATUS_INVALID_STATEMENT); }
-            return(gc_execute_line(line)); // NOTE: $J= is ignored inside g-code parser and used to detect jog motions.
+            return(grbl.gcode.execute_line(line)); // NOTE: $J= is ignored inside g-code parser and used to detect jog motions.
 			break;
         case '$': case 'G': case 'C': case 'X':
             if ( line[2] != 0 ) { return(STATUS_INVALID_STATEMENT); }
@@ -258,7 +258,7 @@ uint8_t system_execute_line(char *line) {
                             line[char_counter-helper_var] = line[char_counter];
                         } while (line[char_counter++] != 0);
                         // Execute gcode block to ensure block is valid.
-                        helper_var = gc_execute_line(line); // Set helper_var to returned status code.
+                        helper_var = grbl.gcode.execute_line(line); // Set helper_var to returned status code.
                         if (helper_var) { return(helper_var); }
                         else {
                             helper_var = truncf(parameter); // Set helper_var to int value of parameter

@@ -65,6 +65,7 @@ public:
     GRBLMotion motion;
     GRBLProbe probe;
     GRBLCoolant coolant;
+    GRBLCode gcode;
 
     // Declare system global variable structure
     system_t sys;

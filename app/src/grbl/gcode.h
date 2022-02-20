@@ -213,7 +213,6 @@ typedef struct {
     float xyz[3];    // X,Y,Z Translational axes
 } gc_values_t;
 
-
 typedef struct {
     gc_modal_t modal;
 
@@ -230,8 +229,6 @@ typedef struct {
     // machine zero in mm. Non-persistent. Cleared upon reset and boot.
     float tool_length_offset;      // Tracks tool length offset value when enabled.
 } parser_state_t;
-extern parser_state_t gc_state;
-
 
 typedef struct {
     uint8_t non_modal_command;
@@ -239,15 +236,23 @@ typedef struct {
     gc_values_t values;
 } parser_block_t;
 
+#define FAIL(status) return(status);
 
-// Initialize the parser
-void gc_init();
+class GRBLCode {
+public:
+    // Declare gc extern struct
+    parser_state_t state;
+    parser_block_t block;
 
-// Execute one block of rs275/ngc/g-code
-uint8_t gc_execute_line(char *line);
+    // Initialize the parser
+    void init();
 
-// Set g-code parser position. Input in steps.
-void gc_sync_position();
+    // Execute one block of rs275/ngc/g-code
+    uint8_t execute_line(char *line);
+
+    // Set g-code parser position. Input in steps.
+    void sync_position();
+};
 
 #ifdef __cplusplus
 }

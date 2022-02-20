@@ -241,7 +241,7 @@ void GRBLMotion::homing_cycle(uint8_t cycle_mask) {
     // -------------------------------------------------------------------------------------
 
     // Sync gcode parser and planner positions to homed position.
-    gc_sync_position();
+    grbl.gcode.sync_position();
     grbl.planner.sync_position();
 
     // If hard limits feature enabled, re-enable hard limits pin change register after homing cycle.

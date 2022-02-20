@@ -58,7 +58,7 @@ void GRBLMain::run() {
 
         // Reset Grbl primary systems.
         serial_reset_read_buffer(); // Clear serial read buffer
-        gc_init(); // Set g-code parser to default state
+        gcode.init(); // Set g-code parser to default state
         spindle.init();
         coolant.init();
         limits_init();
@@ -68,7 +68,7 @@ void GRBLMain::run() {
 
         // Sync cleared gcode and planner positions to current system position.
         planner.sync_position();
-        gc_sync_position();
+        gcode.sync_position();
 
         // Print welcome message. Indicates an initialization has occured at power-up or with a reset.
         report_init_message();
