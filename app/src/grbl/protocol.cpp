@@ -22,15 +22,6 @@
 
 #include "grbl.h"
 
-// Define line flags. Includes comment type tracking and line overflow detection.
-#define LINE_FLAG_OVERFLOW              bit(0)
-#define LINE_FLAG_COMMENT_PARENTHESES   bit(1)
-#define LINE_FLAG_COMMENT_SEMICOLON     bit(2)
-
-static char line[LINE_BUFFER_SIZE]; // Line to be executed. Zero-terminated.
-
-static void protocol_exec_rt_suspend();
-
 /*
   GRBL PRIMARY LOOP:
 */
@@ -158,8 +149,6 @@ void GRBLProtocol::main_loop() {
 
         if (grbl.sys.abort) { return; } // Bail to main() program loop to reset system.
     }
-
-    return; /* Never reached */
 }
 
 
@@ -182,7 +171,7 @@ void GRBLProtocol::buffer_synchronize() {
 // is finished, single commands), a command that needs to wait for the motions in the buffer to
 // execute calls a buffer sync, or the planner buffer is full and ready to go.
 void GRBLProtocol::auto_cycle_start() {
-    if (grbl.planner.get_current_block() != NULL) { // Check if there are any blocks in the buffer.
+    if (grbl.planner.get_current_block() != nullptr) { // Check if there are any blocks in the buffer.
         grbl.system.set_exec_state_flag(EXEC_CYCLE_START); // If so, execute them!
     }
 }
@@ -498,7 +487,7 @@ void GRBLProtocol::exec_rt_system() {
 // This function is written in a way to promote custom parking motions. Simply use this as a
 // template
 void GRBLProtocol::exec_rt_suspend() {
-  #ifdef PARKING_ENABLE
+    #ifdef PARKING_ENABLE
     // Declare and initialize parking local variables
     float restore_target[N_AXIS];
     float parking_target[N_AXIS];
@@ -510,13 +499,14 @@ void GRBLProtocol::exec_rt_suspend() {
     #ifdef USE_LINE_NUMBERS
       pl_data->line_number = PARKING_MOTION_LINE_NUMBER;
     #endif
-  #endif
+    #endif
 
-  plan_block_t *block = grbl.planner.get_current_block();
-  uint8_t restore_condition;
-  #ifdef VARIABLE_SPINDLE
+    plan_block_t *block = grbl.planner.get_current_block();
+    uint8_t restore_condition;
+
+    #ifdef VARIABLE_SPINDLE
     float restore_spindle_speed;
-    if (block == NULL) {
+    if (block == nullptr) {
       restore_condition = (grbl.gcode.state.modal.spindle | grbl.gcode.state.modal.coolant);
       restore_spindle_speed = grbl.gcode.state.spindle_speed;
     } else {
@@ -524,101 +514,98 @@ void GRBLProtocol::exec_rt_suspend() {
       restore_spindle_speed = block->spindle_speed;
     }
     #ifdef DISABLE_LASER_DURING_HOLD
-      if (bit_istrue(grbl.settings.flags(), BITFLAG_LASER_MODE)) {
-          grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_STOP);
-      }
+    if (bit_istrue(grbl.settings.flags(), BITFLAG_LASER_MODE)) {
+        grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_STOP);
+    }
     #endif
-  #else
-    if (block == NULL) { restore_condition = (gc_state.modal.spindle | gc_state.modal.coolant); }
+    #else
+    if (block == nullptr) { restore_condition = (grbl.gcode.state.modal.spindle | grbl.gcode.state.modal.coolant); }
     else { restore_condition = block->condition; }
-  #endif
+    #endif
 
-  while (grbl.sys.suspend) {
+    while (grbl.sys.suspend) {
 
-    if (grbl.sys.abort) { return; }
+        if (grbl.sys.abort) { return; }
 
-    // Block until initial hold is complete and the machine has stopped motion.
-    if (grbl.sys.suspend & SUSPEND_HOLD_COMPLETE) {
+        // Block until initial hold is complete and the machine has stopped motion.
+        if (grbl.sys.suspend & SUSPEND_HOLD_COMPLETE) {
 
-        // Parking manager. Handles de/re-energizing, switch state checks, and parking motions for
-        // the safety door and sleep states.
-        if (grbl.sys.state & (STATE_SAFETY_DOOR | STATE_SLEEP)) {
+            // Parking manager. Handles de/re-energizing, switch state checks, and parking motions for
+            // the safety door and sleep states.
+            if (grbl.sys.state & (STATE_SAFETY_DOOR | STATE_SLEEP)) {
 
-            // Handles retraction motions and de-energizing.
-            if (bit_isfalse(grbl.sys.suspend,SUSPEND_RETRACT_COMPLETE)) {
-                // Ensure any prior spindle stop override is disabled at start of safety door routine.
-                grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_DISABLED;
+                // Handles retraction motions and de-energizing.
+                if (bit_isfalse(grbl.sys.suspend,SUSPEND_RETRACT_COMPLETE)) {
+                    // Ensure any prior spindle stop override is disabled at start of safety door routine.
+                    grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_DISABLED;
 
-                #ifndef PARKING_ENABLE
-                grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
-                grbl.coolant.set_state(COOLANT_DISABLE);     // De-energize
-
-                #else
-                // Get current position and store restore location and spindle retract waypoint.
-            system_convert_array_steps_to_mpos(parking_target,sys_position);
-            if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
-              memcpy(restore_target,parking_target,sizeof(parking_target));
-              retract_waypoint += restore_target[PARKING_AXIS];
-              retract_waypoint = min(retract_waypoint,PARKING_TARGET);
-            }
-
-            // Execute slow pull-out parking retract motion. Parking requires homing enabled, the
-            // current location not exceeding the parking target location, and laser mode disabled.
-            // NOTE: State is will remain DOOR, until the de-energizing and retract is complete.
-						#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
-						if ((bit_istrue(settings.flags, BITFLAG_HOMING_ENABLE)) &&
-														(parking_target[PARKING_AXIS] < PARKING_TARGET) &&
-														bit_isfalse(settings.flags, BITFLAG_LASER_MODE) &&
-														(grbl.sys.override_ctrl == OVERRIDE_PARKING_MOTION)) {
-						#else
-						if ((bit_istrue(settings.flags, BITFLAG_HOMING_ENABLE)) &&
-														(parking_target[PARKING_AXIS] < PARKING_TARGET) &&
-														bit_isfalse(settings.flags, BITFLAG_LASER_MODE)) {
-						#endif
-							// Retract spindle by pullout distance. Ensure retraction motion moves away from
-              // the workpiece and waypoint motion doesn't exceed the parking target location.
-              if (parking_target[PARKING_AXIS] < retract_waypoint) {
-                parking_target[PARKING_AXIS] = retract_waypoint;
-                pl_data->feed_rate = PARKING_PULLOUT_RATE;
-                pl_data->condition |= (restore_condition & PL_COND_ACCESSORY_MASK); // Retain accessory state
-                pl_data->spindle_speed = restore_spindle_speed;
-                mc_parking_motion(parking_target, pl_data);
-              }
-
-              // NOTE: Clear accessory state after retract and after an aborted restore motion.
-              pl_data->condition = (PL_COND_FLAG_SYSTEM_MOTION|PL_COND_FLAG_NO_FEED_OVERRIDE);
-              pl_data->spindle_speed = 0.0f;
-              spindle_set_state(SPINDLE_DISABLE,0.0f); // De-energize
-              coolant_set_state(COOLANT_DISABLE); // De-energize
-
-              // Execute fast parking retract motion to parking target location.
-              if (parking_target[PARKING_AXIS] < PARKING_TARGET) {
-                parking_target[PARKING_AXIS] = PARKING_TARGET;
-                pl_data->feed_rate = PARKING_RATE;
-                mc_parking_motion(parking_target, pl_data);
-              }
-
-            } else {
-
-              // Parking motion not possible. Just disable the spindle and coolant.
-              // NOTE: Laser mode does not start a parking motion to ensure the laser stops immediately.
-              spindle_set_state(SPINDLE_DISABLE,0.0f); // De-energize
-              coolant_set_state(COOLANT_DISABLE);     // De-energize
-
-            }
-                #endif
-
-                grbl.sys.suspend &= ~(SUSPEND_RESTART_RETRACT);
-                grbl.sys.suspend |= SUSPEND_RETRACT_COMPLETE;
-
-            } else {
-                if (grbl.sys.state == STATE_SLEEP) {
-                    GRBLReport::feedback_message(MESSAGE_SLEEP_MODE);
-                    // Spindle and coolant should already be stopped, but do it again just to be sure.
+                    #ifndef PARKING_ENABLE
                     grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
-                    grbl.coolant.set_state(COOLANT_DISABLE); // De-energize
-                    grbl.steppers.go_idle(); // Disable steppers
-                    while (!(grbl.sys.abort)) { exec_rt_system(); } // Do nothing until reset.
+                    grbl.coolant.set_state(COOLANT_DISABLE);     // De-energize
+                    #else
+                    // Get current position and store restore location and spindle retract waypoint.
+                    system_convert_array_steps_to_mpos(parking_target,sys_position);
+                    if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
+                        memcpy(restore_target,parking_target,sizeof(parking_target));
+                        retract_waypoint += restore_target[PARKING_AXIS];
+                        retract_waypoint = min(retract_waypoint,PARKING_TARGET);
+                    }
+
+                    // Execute slow pull-out parking retract motion. Parking requires homing enabled, the
+                    // current location not exceeding the parking target location, and laser mode disabled.
+                    // NOTE: State is will remain DOOR, until the de-energizing and retract is complete.
+					#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
+					if ((bit_istrue(settings.flags, BITFLAG_HOMING_ENABLE)) &&
+													(parking_target[PARKING_AXIS] < PARKING_TARGET) &&
+													bit_isfalse(settings.flags, BITFLAG_LASER_MODE) &&
+													(grbl.sys.override_ctrl == OVERRIDE_PARKING_MOTION)) {
+					#else
+					if ((bit_istrue(settings.flags, BITFLAG_HOMING_ENABLE)) &&
+													(parking_target[PARKING_AXIS] < PARKING_TARGET) &&
+													bit_isfalse(settings.flags, BITFLAG_LASER_MODE)) {
+					#endif
+					    // Retract spindle by pullout distance. Ensure retraction motion moves away from
+                        // the workpiece and waypoint motion doesn't exceed the parking target location.
+                        if (parking_target[PARKING_AXIS] < retract_waypoint) {
+                            parking_target[PARKING_AXIS] = retract_waypoint;
+                            pl_data->feed_rate = PARKING_PULLOUT_RATE;
+                            pl_data->condition |= (restore_condition & PL_COND_ACCESSORY_MASK); // Retain accessory state
+                            pl_data->spindle_speed = restore_spindle_speed;
+                            mc_parking_motion(parking_target, pl_data);
+                        }
+
+                        // NOTE: Clear accessory state after retract and after an aborted restore motion.
+                        pl_data->condition = (PL_COND_FLAG_SYSTEM_MOTION|PL_COND_FLAG_NO_FEED_OVERRIDE);
+                        pl_data->spindle_speed = 0.0f;
+                        spindle_set_state(SPINDLE_DISABLE,0.0f); // De-energize
+                        coolant_set_state(COOLANT_DISABLE); // De-energize
+
+                        // Execute fast parking retract motion to parking target location.
+                        if (parking_target[PARKING_AXIS] < PARKING_TARGET) {
+                            parking_target[PARKING_AXIS] = PARKING_TARGET;
+                            pl_data->feed_rate = PARKING_RATE;
+                            mc_parking_motion(parking_target, pl_data);
+                        }
+
+                    } else {
+
+                        // Parking motion not possible. Just disable the spindle and coolant.
+                        // NOTE: Laser mode does not start a parking motion to ensure the laser stops immediately.
+                        spindle_set_state(SPINDLE_DISABLE,0.0f); // De-energize
+                        coolant_set_state(COOLANT_DISABLE);     // De-energize
+                    }
+                    #endif
+
+                    grbl.sys.suspend &= ~(SUSPEND_RESTART_RETRACT);
+                    grbl.sys.suspend |= SUSPEND_RETRACT_COMPLETE;
+                } else {
+                    if (grbl.sys.state == STATE_SLEEP) {
+                        GRBLReport::feedback_message(MESSAGE_SLEEP_MODE);
+                        // Spindle and coolant should already be stopped, but do it again just to be sure.
+                        grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
+                        grbl.coolant.set_state(COOLANT_DISABLE); // De-energize
+                        grbl.steppers.go_idle(); // Disable steppers
+                        while (!(grbl.sys.abort)) { exec_rt_system(); } // Do nothing until reset.
                         return; // Abort received. Return to re-initialize.
                     }
           
@@ -633,21 +620,22 @@ void GRBLProtocol::exec_rt_suspend() {
                     if (grbl.sys.suspend & SUSPEND_INITIATE_RESTORE) {
                         #ifdef PARKING_ENABLE
                         // Execute fast restore motion to the pull-out position. Parking requires homing enabled.
-              // NOTE: State is will remain DOOR, until the de-energizing and retract is complete.
-							#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
-							if (((settings.flags & (BITFLAG_HOMING_ENABLE | BITFLAG_LASER_MODE)) == BITFLAG_HOMING_ENABLE) &&
-									 (grbl.sys.override_ctrl == OVERRIDE_PARKING_MOTION)) {
-							#else
-							if ((settings.flags & (BITFLAG_HOMING_ENABLE | BITFLAG_LASER_MODE)) == BITFLAG_HOMING_ENABLE) {
-							#endif
-                // Check to ensure the motion doesn't move below pull-out position.
-                if (parking_target[PARKING_AXIS] <= PARKING_TARGET) {
-                  parking_target[PARKING_AXIS] = retract_waypoint;
-                  pl_data->feed_rate = PARKING_RATE;
-                  mc_parking_motion(parking_target, pl_data);
-                }
-              }
+                        // NOTE: State is will remain DOOR, until the de-energizing and retract is complete.
+						#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
+						if (((settings.flags & (BITFLAG_HOMING_ENABLE | BITFLAG_LASER_MODE)) == BITFLAG_HOMING_ENABLE) &&
+                            (grbl.sys.override_ctrl == OVERRIDE_PARKING_MOTION)) {
+						#else
+						if ((settings.flags & (BITFLAG_HOMING_ENABLE | BITFLAG_LASER_MODE)) == BITFLAG_HOMING_ENABLE) {
+						#endif
+                            // Check to ensure the motion doesn't move below pull-out position.
+                            if (parking_target[PARKING_AXIS] <= PARKING_TARGET) {
+                                parking_target[PARKING_AXIS] = retract_waypoint;
+                                pl_data->feed_rate = PARKING_RATE;
+                                mc_parking_motion(parking_target, pl_data);
+                            }
+                        }
                         #endif
+
                         // Delayed Tasks: Restart spindle and coolant, delay to power-up, then resume cycle.
                         if (grbl.gcode.state.modal.spindle != SPINDLE_DISABLE) {
                             // Block if safety door re-opened during prior restore actions.
@@ -661,6 +649,7 @@ void GRBLProtocol::exec_rt_suspend() {
                                 }
                             }
                         }
+
                         if (grbl.gcode.state.modal.coolant != COOLANT_DISABLE) {
                             // Block if safety door re-opened during prior restore actions.
                             if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
@@ -669,26 +658,29 @@ void GRBLProtocol::exec_rt_suspend() {
                                 delay_sec(SAFETY_DOOR_COOLANT_DELAY, DELAY_MODE_SYS_SUSPEND);
                             }
                         }
+
                         #ifdef PARKING_ENABLE
                         // Execute slow plunge motion from pull-out position to resume position.
 						#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
 						if (((settings.flags & (BITFLAG_HOMING_ENABLE | BITFLAG_LASER_MODE)) == BITFLAG_HOMING_ENABLE) &&
-									(grbl.sys.override_ctrl == OVERRIDE_PARKING_MOTION)) {
+							(grbl.sys.override_ctrl == OVERRIDE_PARKING_MOTION)) {
 							#else
-							if ((settings.flags & (BITFLAG_HOMING_ENABLE | BITFLAG_LASER_MODE)) == BITFLAG_HOMING_ENABLE) {
+							if ((grbl.settings.flags() & (BITFLAG_HOMING_ENABLE | BITFLAG_LASER_MODE)) == BITFLAG_HOMING_ENABLE) {
 							#endif
-                // Block if safety door re-opened during prior restore actions.
-                if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
-                  // Regardless if the retract parking motion was a valid/safe motion or not, the
-                  // restore parking motion should logically be valid, either by returning to the
-                  // original position through valid machine space or by not moving at all.
-                  pl_data->feed_rate = PARKING_PULLOUT_RATE;
-									pl_data->condition |= (restore_condition & PL_COND_ACCESSORY_MASK); // Restore accessory state
-									pl_data->spindle_speed = restore_spindle_speed;
-                  mc_parking_motion(restore_target, pl_data);
-                }
-              }
+
+                            // Block if safety door re-opened during prior restore actions.
+                            if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
+                                // Regardless if the retract parking motion was a valid/safe motion or not, the
+                                // restore parking motion should logically be valid, either by returning to the
+                                // original position through valid machine space or by not moving at all.
+                                pl_data->feed_rate = PARKING_PULLOUT_RATE;
+                                pl_data->condition |= (restore_condition & PL_COND_ACCESSORY_MASK); // Restore accessory state
+                                pl_data->spindle_speed = restore_spindle_speed;
+                                grbl.motion.parking_motion(restore_target, pl_data);
+                            }
+                        }
                         #endif
+
                         if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
                             grbl.sys.suspend |= SUSPEND_RESTORE_COMPLETE;
                             grbl.system.set_exec_state_flag(EXEC_CYCLE_START); // Set to resume program.

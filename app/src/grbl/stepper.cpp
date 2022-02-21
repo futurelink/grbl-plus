@@ -24,24 +24,6 @@
 
 #include "stm32/stm32_helpers.h"
 
-const PORTPINDEF step_pin_mask[N_AXIS] = {
-    1 << X_STEP_BIT,
-    1 << Y_STEP_BIT,
-    1 << Z_STEP_BIT,
-};
-
-const PORTPINDEF direction_pin_mask[N_AXIS] = {
-    1 << X_DIRECTION_BIT,
-    1 << Y_DIRECTION_BIT,
-    1 << Z_DIRECTION_BIT,
-        };
-
-const PORTPINDEF limit_pin_mask[N_AXIS] = {
-    1 << X_LIMIT_BIT,
-    1 << Y_LIMIT_BIT,
-    1 << Z_LIMIT_BIT,
-};
-
 /* Prepares step segment buffer. Continuously called from main program.
 
    The segment buffer is an intermediary buffer interface between the execution of steps
@@ -486,18 +468,7 @@ void GRBLSteppers::wake_up() {
     st.step_pulse_time = (grbl.settings.pulse_microseconds()) * TICKS_PER_MICROSECOND;
     #endif
 
-    // Enable Stepper Driver Interrupt
-    TIM3->ARR = st.step_pulse_time - 1;
-    TIM3->EGR = 1; // Immediate reload
-    TIM3->SR &= ~TIM_SR_UIF;
-    TIM2->ARR = st.exec_segment->cycles_per_tick - 1;
-
-    /* Set the Autoreload value */
-    #ifndef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
-    TIM2->PSC = st.exec_segment->prescaler;
-    #endif
-    TIM2->EGR = 1; // Immediate reload
-    NVIC_EnableIRQ(TIM2_IRQn);
+    stm32_steppers_wake_up(st.step_pulse_time, st.exec_segment->cycles_per_tick);
 }
 
 // Stepper shutdown
@@ -543,11 +514,16 @@ void GRBLSteppers::reset() {
     generate_step_dir_invert_masks();
     st.dir_outbits = dir_port_invert_mask; // Initialize direction bits to default.
 
-    // Initialize step and direction port pins.
-    STEP_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | (step_port_invert_mask & STEP_MASK);
-    DIRECTION_PORT->ODR = (DIRECTION_PORT->ODR & ~DIRECTION_MASK) | (dir_port_invert_mask & DIRECTION_MASK);
+    stm32_steppers_set(dir_port_invert_mask, step_port_invert_mask);
 }
 
+uint8_t GRBLSteppers::step_pin_mask_bit(PORTPINDEF axis_bit) {
+    return step_pin_mask[axis_bit];
+}
+
+uint8_t GRBLSteppers::dir_pin_mask_bit(PORTPINDEF axis_bit) {
+    return direction_pin_mask[axis_bit];
+}
 // Initialize and start the stepper motor subsystem
 void GRBLSteppers::init() {
     // Configure step and direction interface pins
@@ -559,7 +535,7 @@ void GRBLSteppers::generate_step_dir_invert_masks() {
     uint8_t idx;
     step_port_invert_mask = 0;
     dir_port_invert_mask = 0;
-    for (idx=0; idx<N_AXIS; idx++) {
+    for (idx = 0; idx < N_AXIS; idx++) {
         if (bit_istrue(grbl.settings.step_invert_mask(),bit(idx))) { step_port_invert_mask |= step_pin_mask[idx]; }
         if (bit_istrue(grbl.settings.dir_invert_mask(),bit(idx))) { dir_port_invert_mask |= direction_pin_mask[idx]; }
     }
@@ -578,7 +554,7 @@ void GRBLSteppers::update_plan_block_parameters() {
 uint8_t GRBLSteppers::next_block_index(uint8_t block_index) {
     block_index++;
     if ( block_index == (SEGMENT_BUFFER_SIZE-1) ) { return(0); }
-    return(block_index);
+    return block_index;
 }
 
 #ifdef PARKING_ENABLE
@@ -713,7 +689,7 @@ float GRBLSteppers::get_realtime_rate() const {
 // TODO: Replace direct updating of the int32 position counters in the ISR somehow. Perhaps use smaller
 // int8 variables and update position counters only when a segment completes. This can get complicated
 // with probing and homing cycles that require true real-time positions.
-void GRBLSteppers::tim2_handler() {
+void GRBLSteppers::pulse_start() {
 
     if (!stm32_steppers_pulse_start(busy, st.dir_outbits, st.step_outbits)) {
         return;
@@ -848,7 +824,7 @@ void GRBLSteppers::tim2_handler() {
 // This interrupt is enabled by ISR_TIMER1_COMPAREA when it sets the motor port bits to execute
 // a step. This ISR resets the motor port after a short period (settings.pulse_microseconds)
 // completing one step cycle.
-void GRBLSteppers::tim3_handler() const {
+void GRBLSteppers::pulse_end() const {
     stm32_steppers_pulse_end(step_port_invert_mask);
 }
 

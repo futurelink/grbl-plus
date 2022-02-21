@@ -57,6 +57,10 @@ uint8_t stm32_get_mist_state();
 
 void stm32_set_mist_state(bool state);
 
+void stm32_steppers_wake_up(uint8_t step_pulse_time, uint16_t cycles_per_tick);
+
+void stm32_steppers_set(PORTPINDEF dir_bits, PORTPINDEF step_bits);
+
 bool stm32_steppers_pulse_start(bool busy, PORTPINDEF dir_bits, PORTPINDEF step_bits);
 
 void stm32_steppers_pulse_end(PORTPINDEF step_mask);

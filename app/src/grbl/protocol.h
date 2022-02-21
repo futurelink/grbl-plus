@@ -26,6 +26,11 @@
 extern "C" {
 #endif
 
+// Define line flags. Includes comment type tracking and line overflow detection.
+#define LINE_FLAG_OVERFLOW              bit(0)
+#define LINE_FLAG_COMMENT_PARENTHESES   bit(1)
+#define LINE_FLAG_COMMENT_SEMICOLON     bit(2)
+
 // Line buffer size from the serial input stream to be executed.
 // NOTE: Not a problem except for extreme cases, but the line buffer size can be too small
 // and g-code blocks can get truncated. Officially, the g-code standards support up to 256
@@ -37,10 +42,13 @@ extern "C" {
 #endif
 
 class GRBLProtocol {
+private:
+    char line[LINE_BUFFER_SIZE]; // Line to be executed. Zero-terminated.
+
 public:
     // Starts Grbl main loop. It handles all incoming characters from the serial port and executes
     // them as they complete. It is also responsible for finishing the initialization procedures.
-    static void main_loop();
+    void main_loop();
 
     // Checks and executes a realtime command at various stop points in main program
     static void execute_realtime();

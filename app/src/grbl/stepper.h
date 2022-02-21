@@ -157,11 +157,19 @@ typedef struct {
 #endif
 } st_prep_t;
 
-extern const PORTPINDEF step_pin_mask[N_AXIS];
-extern const PORTPINDEF direction_pin_mask[N_AXIS];
-extern const PORTPINDEF limit_pin_mask[N_AXIS];
-
 class GRBLSteppers {
+    const PORTPINDEF step_pin_mask[N_AXIS] = {
+            1 << X_STEP_BIT,
+            1 << Y_STEP_BIT,
+            1 << Z_STEP_BIT,
+    };
+
+    const PORTPINDEF direction_pin_mask[N_AXIS] = {
+            1 << X_DIRECTION_BIT,
+            1 << Y_DIRECTION_BIT,
+            1 << Z_DIRECTION_BIT,
+    };
+
 public:
     // Step and direction port invert masks.
     PORTPINDEF step_port_invert_mask;
@@ -187,8 +195,8 @@ public:
 
     static uint8_t next_block_index(uint8_t block_index);
 
-    void tim3_handler() const;
-    void tim2_handler();
+    void pulse_end() const;
+    void pulse_start();
 
     // Initialize and setup the stepper motor subsystem
     static void init();
@@ -221,6 +229,9 @@ public:
 
     // Called by realtime status reporting if realtime rate reporting is enabled in config.h.
     float get_realtime_rate() const;
+
+    uint8_t step_pin_mask_bit(PORTPINDEF axis_bit);
+    uint8_t dir_pin_mask_bit(PORTPINDEF axis_bit);
 };
 
 #endif

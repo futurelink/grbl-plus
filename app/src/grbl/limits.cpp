@@ -144,7 +144,7 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
     uint8_t idx;
     for (idx = 0; idx < N_AXIS; idx++) {
         // Initialize step pin masks
-        step_pin[idx] = step_pin_mask[idx];
+        step_pin[idx] = grbl.steppers.step_pin_mask_bit(idx);
         #ifdef COREXY
         if ((idx==A_MOTOR)||(idx==B_MOTOR)) { step_pin[idx] = (step_pin_mask[X_AXIS]| step_pin_mask[Y_AXIS]); }
         #endif

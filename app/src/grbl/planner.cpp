@@ -343,7 +343,7 @@ uint8_t GRBLPlanner::buffer_line(float *target, plan_line_data_t *pl_data) {
         unit_vec[idx] = delta_mm; // Store unit vector numerator
 
         // Set direction bits. Bit enabled always means direction is negative.
-        if (delta_mm < 0.0f ) { block->direction_bits |= direction_pin_mask[idx]; }
+        if (delta_mm < 0.0f ) { block->direction_bits |= grbl.steppers.dir_pin_mask_bit(idx); }
     }
 
     // Bail if this is a zero-length block. Highly unlikely to occur.

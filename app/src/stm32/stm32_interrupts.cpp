@@ -88,9 +88,9 @@ void EXTI15_10_IRQHandler(void) {
 }
 
 void TIM2_IRQHandler() {
-    grbl.steppers.tim2_handler();
+    grbl.steppers.pulse_start();
 }
 
 void TIM3_IRQHandler() {
-    grbl.steppers.tim3_handler();
+    grbl.steppers.pulse_end();
 }

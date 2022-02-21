@@ -27,6 +27,11 @@ extern "C" {
 #endif
 
 class GRBLLimits {
+    const uint16_t limit_pin_mask[N_AXIS] = {
+            1 << X_LIMIT_BIT,
+            1 << Y_LIMIT_BIT,
+            1 << Z_LIMIT_BIT,
+    };
 public:
     // Initialize the limits module
     static void init();
@@ -35,10 +40,10 @@ public:
     static void disable();
 
     // Returns limit state as a bit-wise uint8 variable.
-    static uint8_t get_state();
+    uint8_t get_state();
 
     // Perform one portion of the homing cycle based on the input settings.
-    static void go_home(uint8_t cycle_mask);
+    void go_home(uint8_t cycle_mask);
 
     // Check for soft limit violations
     static void soft_check(float *target);

@@ -68,6 +68,7 @@ public:
     GRBLCoolant coolant;
     GRBLCode gcode;
     GRBLLimits limits;
+    GRBLProtocol protocol;
 
     // Declare system global variable structure
     system_t sys;

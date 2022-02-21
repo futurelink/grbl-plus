@@ -91,6 +91,6 @@ void GRBLMain::run() {
         GRBLReport::init_message();
 
         // Start Grbl main loop. Processes program inputs and executes them.
-        GRBLProtocol::main_loop();
+        protocol.main_loop();
     }
 }

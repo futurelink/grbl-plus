@@ -448,3 +448,24 @@ bool stm32_steppers_pulse_start(bool busy, PORTPINDEF dir_bits, PORTPINDEF step_
 
     return true;
 }
+
+void stm32_steppers_set(PORTPINDEF dir_bits, PORTPINDEF step_bits) {
+    // Initialize step and direction port pins.
+    STEP_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | (step_bits & STEP_MASK);
+    DIRECTION_PORT->ODR = (DIRECTION_PORT->ODR & ~DIRECTION_MASK) | (dir_bits & DIRECTION_MASK);
+}
+
+void stm32_steppers_wake_up(uint8_t step_pulse_time, uint16_t cycles_per_tick) {
+    // Enable Stepper Driver Interrupt
+    TIM3->ARR = step_pulse_time - 1;
+    TIM3->EGR = 1; // Immediate reload
+    TIM3->SR &= ~TIM_SR_UIF;
+    TIM2->ARR = cycles_per_tick - 1;
+
+    /* Set the Autoreload value */
+    #ifndef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    TIM2->PSC = st.exec_segment->prescaler;
+    #endif
+    TIM2->EGR = 1; // Immediate reload
+    NVIC_EnableIRQ(TIM2_IRQn);
+}
