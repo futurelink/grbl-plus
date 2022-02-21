@@ -84,8 +84,8 @@ void GRBLSteppers::prep_buffer() {
 
                 // Initialize segment buffer data for generating the segments.
                 prep.steps_remaining = (float)pl_block->step_event_count;
-                prep.step_per_mm = prep.steps_remaining/pl_block->millimeters;
-                prep.req_mm_increment = REQ_MM_INCREMENT_SCALAR/prep.step_per_mm;
+                prep.step_per_mm = prep.steps_remaining / pl_block->millimeters;
+                prep.req_mm_increment = REQ_MM_INCREMENT_SCALAR / prep.step_per_mm;
                 prep.dt_remainder = 0.0f; // Reset for new segment block
 
                 if ((grbl.system.step_control & STEP_CONTROL_EXECUTE_HOLD) || (prep.recalculate_flag & PREP_FLAG_DECEL_OVERRIDE)) {
@@ -124,10 +124,10 @@ void GRBLSteppers::prep_buffer() {
                 // the planner block profile, enforcing a deceleration to zero speed.
                 prep.ramp_type = RAMP_DECEL;
                 // Compute decelerate distance relative to end of block.
-                float decel_dist = pl_block->millimeters - inv_2_accel*pl_block->entry_speed_sqr;
+                float decel_dist = pl_block->millimeters - inv_2_accel * pl_block->entry_speed_sqr;
                 if (decel_dist < 0.0f) {
                     // Deceleration through entire planner block. End of feed hold is not in this block.
-                    prep.exit_speed = sqrtf(pl_block->entry_speed_sqr-2*pl_block->acceleration*pl_block->millimeters);
+                    prep.exit_speed = sqrtf(pl_block->entry_speed_sqr - 2 * pl_block->acceleration * pl_block->millimeters);
                 } else {
                     prep.mm_complete = decel_dist; // End of feed hold.
                     prep.exit_speed = 0.0f;
@@ -159,7 +159,7 @@ void GRBLSteppers::prep_buffer() {
                         // prep.maximum_speed = prep.current_speed;
 
                         // Compute override block exit speed since it doesn't match the planner exit speed.
-                        prep.exit_speed = sqrtf(pl_block->entry_speed_sqr - 2*pl_block->acceleration*pl_block->millimeters);
+                        prep.exit_speed = sqrtf(pl_block->entry_speed_sqr - 2 * pl_block->acceleration * pl_block->millimeters);
                         prep.recalculate_flag |= PREP_FLAG_DECEL_OVERRIDE; // Flag to load next block as deceleration override.
 
                         // TODO: Determine correct handling of parameters in deceleration-only.
@@ -175,7 +175,7 @@ void GRBLSteppers::prep_buffer() {
                 } else if (intersect_distance > 0.0f) {
                     if (intersect_distance < pl_block->millimeters) { // Either trapezoid or triangle types
                         // NOTE: For acceleration-cruise and cruise-only types, following calculation will be 0.0.
-                        prep.decelerate_after = inv_2_accel*(nominal_speed_sqr-exit_speed_sqr);
+                        prep.decelerate_after = inv_2_accel * (nominal_speed_sqr - exit_speed_sqr);
                         if (prep.decelerate_after < intersect_distance) { // Trapezoid type
                             prep.maximum_speed = nominal_speed;
                             if (pl_block->entry_speed_sqr == nominal_speed_sqr) {
@@ -183,12 +183,12 @@ void GRBLSteppers::prep_buffer() {
                                 prep.ramp_type = RAMP_CRUISE;
                             } else {
                                 // Full-trapezoid or acceleration-cruise types
-                                prep.accelerate_until -= inv_2_accel*(nominal_speed_sqr-pl_block->entry_speed_sqr);
+                                prep.accelerate_until -= inv_2_accel * (nominal_speed_sqr - pl_block->entry_speed_sqr);
                             }
                         } else { // Triangle type
                             prep.accelerate_until = intersect_distance;
                             prep.decelerate_after = intersect_distance;
-                            prep.maximum_speed = sqrtf(2.0f*pl_block->acceleration*intersect_distance+exit_speed_sqr);
+                            prep.maximum_speed = sqrtf(2.0f * pl_block->acceleration * intersect_distance + exit_speed_sqr);
                         }
                     } else { // Deceleration-only type
                         prep.ramp_type = RAMP_DECEL;
@@ -233,7 +233,7 @@ void GRBLSteppers::prep_buffer() {
         float mm_var; // mm-Distance worker variable
         float speed_var; // Speed worker variable
         float mm_remaining = pl_block->millimeters; // New segment distance from end of block.
-        float minimum_mm = mm_remaining-prep.req_mm_increment; // Guarantee at least one step.
+        float minimum_mm = mm_remaining - prep.req_mm_increment; // Guarantee at least one step.
         if (minimum_mm < 0.0f) { minimum_mm = 0.0f; }
 
         do {
@@ -243,7 +243,7 @@ void GRBLSteppers::prep_buffer() {
                     if (prep.current_speed-prep.maximum_speed <= speed_var) {
                         // Cruise or cruise-deceleration types only for deceleration override.
                         mm_remaining = prep.accelerate_until;
-                        time_var = 2.0f*(pl_block->millimeters-mm_remaining)/(prep.current_speed+prep.maximum_speed);
+                        time_var = 2.0f * (pl_block->millimeters - mm_remaining) / (prep.current_speed + prep.maximum_speed);
                         prep.ramp_type = RAMP_CRUISE;
                         prep.current_speed = prep.maximum_speed;
                     } else { // Mid-deceleration override ramp.
@@ -253,12 +253,12 @@ void GRBLSteppers::prep_buffer() {
                     break;
                 case RAMP_ACCEL:
                     // NOTE: Acceleration ramp only computes during first do-while loop.
-                    speed_var = pl_block->acceleration*time_var;
-                    mm_remaining -= time_var*(prep.current_speed + 0.5f*speed_var);
+                    speed_var = pl_block->acceleration * time_var;
+                    mm_remaining -= time_var * (prep.current_speed + 0.5f * speed_var);
                     if (mm_remaining < prep.accelerate_until) { // End of acceleration ramp.
                         // Acceleration-cruise, acceleration-deceleration ramp junction, or end of block.
                         mm_remaining = prep.accelerate_until; // NOTE: 0.0 at EOB
-                        time_var = 2.0f*(pl_block->millimeters-mm_remaining)/(prep.current_speed+prep.maximum_speed);
+                        time_var = 2.0f * (pl_block->millimeters - mm_remaining) / (prep.current_speed + prep.maximum_speed);
                         if (mm_remaining == prep.decelerate_after) { prep.ramp_type = RAMP_DECEL; }
                         else { prep.ramp_type = RAMP_CRUISE; }
                         prep.current_speed = prep.maximum_speed;
@@ -270,10 +270,10 @@ void GRBLSteppers::prep_buffer() {
                     // NOTE: mm_var used to retain the last mm_remaining for incomplete segment time_var calculations.
                     // NOTE: If maximum_speed*time_var value is too low, round-off can cause mm_var to not change. To
                     //   prevent this, simply enforce a minimum speed threshold in the planner.
-                    mm_var = mm_remaining - prep.maximum_speed*time_var;
+                    mm_var = mm_remaining - prep.maximum_speed * time_var;
                     if (mm_var < prep.decelerate_after) { // End of cruise.
                         // Cruise-deceleration junction or end of block.
-                        time_var = (mm_remaining - prep.decelerate_after)/prep.maximum_speed;
+                        time_var = (mm_remaining - prep.decelerate_after) / prep.maximum_speed;
                         mm_remaining = prep.decelerate_after; // NOTE: 0.0 at EOB
                         prep.ramp_type = RAMP_DECEL;
                     } else { // Cruising only.
@@ -282,10 +282,10 @@ void GRBLSteppers::prep_buffer() {
                     break;
                 default: // case RAMP_DECEL:
                     // NOTE: mm_var used as a misc worker variable to prevent errors when near zero speed.
-                    speed_var = pl_block->acceleration*time_var; // Used as delta speed (mm/min)
+                    speed_var = pl_block->acceleration * time_var; // Used as delta speed (mm/min)
                     if (prep.current_speed > speed_var) { // Check if at or below zero speed.
                         // Compute distance from end of segment to end of block.
-                        mm_var = mm_remaining - time_var*(prep.current_speed - 0.5f*speed_var); // (mm)
+                        mm_var = mm_remaining - time_var * (prep.current_speed - 0.5f * speed_var); // (mm)
                         if (mm_var > prep.mm_complete) { // Typical case. In deceleration ramp.
                             mm_remaining = mm_var;
                             prep.current_speed -= speed_var;
@@ -311,11 +311,10 @@ void GRBLSteppers::prep_buffer() {
             }
         } while (mm_remaining > prep.mm_complete); // **Complete** Exit loop. Profile complete.
 
-#ifdef VARIABLE_SPINDLE
         /* -----------------------------------------------------------------------------------
           Compute spindle speed PWM output for step segment
         */
-
+        #ifdef VARIABLE_SPINDLE
         if (st_prep_block->is_pwm_rate_adjusted || (grbl.system.step_control & STEP_CONTROL_UPDATE_SPINDLE_PWM)) {
             if (pl_block->condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)) {
                 float rpm = pl_block->spindle_speed;
@@ -332,8 +331,7 @@ void GRBLSteppers::prep_buffer() {
             bit_false(grbl.system.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
         }
         prep_segment->spindle_pwm = prep.current_spindle_pwm; // Reload segment PWM value
-
-#endif
+        #endif
 
         /* -----------------------------------------------------------------------------------
            Compute segment step rate, steps to execute, and apply necessary rate corrections.
@@ -356,9 +354,9 @@ void GRBLSteppers::prep_buffer() {
                 // Less than one step to decelerate to zero speed, but already very close. AMASS
                 // requires full steps to execute. So, just bail.
                 bit_true(grbl.system.step_control,STEP_CONTROL_END_MOTION);
-#ifdef PARKING_ENABLE
+                #ifdef PARKING_ENABLE
                 if (!(prep.recalculate_flag & PREP_FLAG_PARKING)) { prep.recalculate_flag |= PREP_FLAG_HOLD_PARTIAL_BLOCK; }
-#endif
+                #endif
                 return; // Segment not generated, but current step data still retained.
             }
         }
@@ -377,7 +375,7 @@ void GRBLSteppers::prep_buffer() {
         // Compute CPU cycles per step for the prepped segment.
         uint32_t cycles = (uint32_t)ceilf((TICKS_PER_MICROSECOND * 1000000) *inv_rate * 60); // (cycles/step)
 
-#ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+        #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
         // Compute step timing and multi-axis smoothing level.
         // NOTE: AMASS overdrives the timer with each level, so only one prescalar is required.
         if (cycles < AMASS_LEVEL1) { prep_segment->amass_level = 0; }
@@ -390,23 +388,23 @@ void GRBLSteppers::prep_buffer() {
         }
         if (cycles < (1UL << 16)) { prep_segment->cycles_per_tick = cycles; } // < 65536 (4.1ms @ 16MHz)
         else { prep_segment->cycles_per_tick = 0xffff; } // Just set the slowest speed possible.
-#else
+        #else
         // Compute step timing and timer prescalar for normal step generation.
-          if (cycles < (1UL << 16)) { // < 65536  (4.1ms @ 16MHz)
+        if (cycles < (1UL << 16)) { // < 65536  (4.1ms @ 16MHz)
             prep_segment->prescaler = 1; // prescaler: 0
             prep_segment->cycles_per_tick = cycles;
-          } else if (cycles < (1UL << 19)) { // < 524288 (32.8ms@16MHz)
+        } else if (cycles < (1UL << 19)) { // < 524288 (32.8ms@16MHz)
             prep_segment->prescaler = 2; // prescaler: 8
             prep_segment->cycles_per_tick = cycles >> 3;
-          } else {
+        } else {
             prep_segment->prescaler = 3; // prescaler: 64
             if (cycles < (1UL << 22)) { // < 4194304 (262ms@16MHz)
-              prep_segment->cycles_per_tick =  cycles >> 6;
+                prep_segment->cycles_per_tick =  cycles >> 6;
             } else { // Just set the slowest speed possible. (Around 4 step/sec.)
-              prep_segment->cycles_per_tick = 0xffff;
+                prep_segment->cycles_per_tick = 0xffff;
             }
-          }
-#endif
+        }
+        #endif
 
         // Segment complete! Increment segment buffer indices, so stepper ISR can immediately execute it.
         segment_buffer_head = segment_next_head;
@@ -415,7 +413,7 @@ void GRBLSteppers::prep_buffer() {
         // Update the appropriate planner and segment data.
         pl_block->millimeters = mm_remaining;
         prep.steps_remaining = n_steps_remaining;
-        prep.dt_remainder = (n_steps_remaining - step_dist_remaining)*inv_rate;
+        prep.dt_remainder = (n_steps_remaining - step_dist_remaining) * inv_rate;
 
         // Check for exit conditions and flag to load next planner block.
         if (mm_remaining == prep.mm_complete) {
@@ -480,7 +478,8 @@ void GRBLSteppers::go_idle() {
 
     // Set stepper driver idle state, disabled or enabled, depending on settings and circumstances.
     bool pin_state = false; // Keep enabled.
-    if (((grbl.settings.stepper_idle_lock_time() != 0xff) || grbl.system.rt_exec_alarm || grbl.system.state == STATE_SLEEP) && grbl.system.state != STATE_HOMING) {
+    if (((grbl.settings.stepper_idle_lock_time() != 0xff) || grbl.system.rt_exec_alarm || grbl.system.state == STATE_SLEEP)
+            && grbl.system.state != STATE_HOMING) {
         // Force stepper dwell to lock axes for a defined amount of time to ensure the axes come to a complete
         // stop and not drift from residual inertial forces at the end of the last movement.
         HAL_Delay(grbl.settings.stepper_idle_lock_time());
@@ -691,6 +690,7 @@ float GRBLSteppers::get_realtime_rate() const {
 // with probing and homing cycles that require true real-time positions.
 void GRBLSteppers::pulse_start() {
 
+    // Returns false when busy
     if (!stm32_steppers_pulse_start(busy, st.dir_outbits, st.step_outbits)) {
         return;
     }
@@ -829,12 +829,13 @@ void GRBLSteppers::pulse_end() const {
 }
 
 #ifdef STEP_PULSE_DELAY
+#error "STEP_PULSE_DELAY is not supported"
 // This interrupt is used only when STEP_PULSE_DELAY is enabled. Here, the step pulse is
 // initiated after the STEP_PULSE_DELAY time period has elapsed. The ISR TIMER2_OVF interrupt
 // will then trigger after the appropriate settings.pulse_microseconds, as in normal operation.
 // The new timing between direction, step pulse, and step complete events are setup in the
 // st_wake_up() routine.
-ISR(TIMER0_COMPA_vect) {
-    STEP_PORT = st.step_bits; // Begin step pulse.
-}
+//ISR(TIMER0_COMPA_vect) {
+//    STEP_PORT = st.step_bits; // Begin step pulse.
+//}
 #endif

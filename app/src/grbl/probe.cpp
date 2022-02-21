@@ -38,7 +38,7 @@ void GRBLProbe::configure_invert_mask(uint8_t is_probe_away) {
 
 // Returns the probe pin state. Triggered = true. Called by gcode parser and probe state monitor.
 uint8_t GRBLProbe::get_state() {
-	return ((PROBE_PORT->IDR & PROBE_MASK) ^ probe_invert_mask) != 0;
+	return (stm32_get_probe_state() ^ probe_invert_mask) != 0;
 }
 
 // Monitors probe pin state and records the system position when detected. Called by the

@@ -365,35 +365,35 @@ void stm32_eeprom_put_char(uint32_t addr, uint8_t value) {
 }
 
 uint8_t stm32_get_flood_state() {
-#ifdef INVERT_COOLANT_FLOOD_PIN
+    #ifdef INVERT_COOLANT_FLOOD_PIN
     return (HAL_GPIO_ReadPin(COOLANT_FLOOD_PORT), COOLANT_FLOOD_BIT) == GPIO_PIN_RESET);
-#else
+    #else
     return (HAL_GPIO_ReadPin(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT) == GPIO_PIN_SET);
-#endif
+    #endif
 }
 
 void stm32_set_flood_state(bool state) {
-#ifdef INVERT_COOLANT_FLOOD_PIN
+    #ifdef INVERT_COOLANT_FLOOD_PIN
     HAL_GPIO_WritePin(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT, state ? GPIO_PIN_RESET : GPIO_PIN_SET);
-#else
+    #else
     HAL_GPIO_WritePin(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
-#endif
+    #endif
 }
 
 uint8_t stm32_get_mist_state() {
-#ifdef INVERT_COOLANT_FLOOD_PIN
+    #ifdef INVERT_COOLANT_FLOOD_PIN
     return (HAL_GPIO_ReadPin(COOLANT_MIST_PORT), COOLANT_MIST_BIT) == GPIO_PIN_RESET);
-#else
+    #else
     return (HAL_GPIO_ReadPin(COOLANT_MIST_PORT, COOLANT_MIST_BIT) == GPIO_PIN_SET);
-#endif
+    #endif
 }
 
 void stm32_set_mist_state(bool state) {
-#ifdef INVERT_COOLANT_MIST_PIN
+    #ifdef INVERT_COOLANT_MIST_PIN
     HAL_GPIO_WritePin(COOLANT_MIST_PORT, COOLANT_MIST_BIT, state ? GPIO_PIN_RESET : GPIO_PIN_SET);
-#else
+    #else
     HAL_GPIO_WritePin(COOLANT_MIST_PORT, COOLANT_MIST_BIT, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
-#endif
+    #endif
 }
 
 void stm32_steppers_pulse_end(PORTPINDEF step_mask) {
@@ -420,12 +420,12 @@ bool stm32_steppers_pulse_start(bool busy, PORTPINDEF dir_bits, PORTPINDEF step_
     TIM3->SR &= ~TIM_SR_UIF;
 
     // Then pulse the stepping pins
-#ifdef STEP_PULSE_DELAY
+    #ifdef STEP_PULSE_DELAY
     st.step_bits = (STEP_PORT->ODR & ~STEP_MASK) | st.step_outbits; // Store out_bits to prevent overwriting.
-#else  // Normal operation
+    #else  // Normal operation
     // Output demanded state of step bits and current state of other port bits.
     DIRECTION_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | (step_bits & STEP_MASK);
-#endif
+    #endif
 
     // Enable step pulse reset timer so that The Stepper Port Reset Interrupt can reset the signal after
     // exactly settings.pulse_microseconds microseconds, independent of the main Timer1 prescaler.
@@ -451,10 +451,15 @@ void stm32_steppers_wake_up(uint8_t step_pulse_time, uint16_t cycles_per_tick) {
     #ifndef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
     TIM2->PSC = st.exec_segment->prescaler;
     #endif
+
     TIM2->EGR = 1; // Immediate reload
     NVIC_EnableIRQ(TIM2_IRQn);
 }
 
 uint16_t stm32_get_control_state() {
     return CONTROL_PIN_PORT->IDR & CONTROL_MASK;
+}
+
+uint16_t stm32_get_probe_state() {
+    return PROBE_PORT->IDR & PROBE_MASK;
 }

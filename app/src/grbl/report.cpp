@@ -307,21 +307,21 @@ void GRBLReport::gcode_modes() {
 
     report_util_gcode_modes_M();
     #ifdef ENABLE_M7
-        if (grbl.gcode.state.modal.coolant) { // Note: Multiple coolant states may be active at the same time.
-        if (grbl.gcode.state.modal.coolant & PL_COND_FLAG_COOLANT_MIST) { report_util_gcode_modes_M(); grbl.serial.write('7'); }
-        if (grbl.gcode.state.modal.coolant & PL_COND_FLAG_COOLANT_FLOOD) { report_util_gcode_modes_M(); grbl.serial.write('8'); }
-        } else { report_util_gcode_modes_M(); grbl.serial.write('9'); }
+    if (grbl.gcode.state.modal.coolant) { // Note: Multiple coolant states may be active at the same time.
+    if (grbl.gcode.state.modal.coolant & PL_COND_FLAG_COOLANT_MIST) { report_util_gcode_modes_M(); grbl.serial.write('7'); }
+    if (grbl.gcode.state.modal.coolant & PL_COND_FLAG_COOLANT_FLOOD) { report_util_gcode_modes_M(); grbl.serial.write('8'); }
+    } else { report_util_gcode_modes_M(); grbl.serial.write('9'); }
     #else
-        report_util_gcode_modes_M();
-        if (grbl.gcode.state.modal.coolant) { grbl.serial.write('8'); }
-        else { grbl.serial.write('9'); }
+    report_util_gcode_modes_M();
+    if (grbl.gcode.state.modal.coolant) { grbl.serial.write('8'); }
+    else { grbl.serial.write('9'); }
     #endif
 
 	#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
-		if (grbl.system.override_ctrl == OVERRIDE_PARKING_MOTION) {
-			report_util_gcode_modes_M();
-			print_uint8_base10(56);
-		}
+    if (grbl.system.override_ctrl == OVERRIDE_PARKING_MOTION) {
+        report_util_gcode_modes_M();
+        print_uint8_base10(56);
+    }
 	#endif
 
     printPgmString(PSTR(" T"));
