@@ -307,10 +307,10 @@ void GRBLReport::gcode_modes() {
 
     report_util_gcode_modes_M();
     #ifdef ENABLE_M7
-        if (gc_state.modal.coolant) { // Note: Multiple coolant states may be active at the same time.
-      if (gc_state.modal.coolant & PL_COND_FLAG_COOLANT_MIST) { report_util_gcode_modes_M(); serial_write('7'); }
-      if (gc_state.modal.coolant & PL_COND_FLAG_COOLANT_FLOOD) { report_util_gcode_modes_M(); serial_write('8'); }
-    } else { report_util_gcode_modes_M(); serial_write('9'); }
+        if (grbl.gcode.state.modal.coolant) { // Note: Multiple coolant states may be active at the same time.
+        if (grbl.gcode.state.modal.coolant & PL_COND_FLAG_COOLANT_MIST) { report_util_gcode_modes_M(); grbl.serial.write('7'); }
+        if (grbl.gcode.state.modal.coolant & PL_COND_FLAG_COOLANT_FLOOD) { report_util_gcode_modes_M(); grbl.serial.write('8'); }
+        } else { report_util_gcode_modes_M(); grbl.serial.write('9'); }
     #else
         report_util_gcode_modes_M();
         if (grbl.gcode.state.modal.coolant) { grbl.serial.write('8'); }
@@ -355,39 +355,38 @@ void GRBLReport::execute_startup_message(char *line, uint8_t status_code) {
 }
 
 // Prints build info line
-void GRBLReport::build_info(char *line)
-{
-  printPgmString(PSTR("[VER:" GRBL_VERSION "." GRBL_VERSION_BUILD ":"));
-  printString(line);
-  report_util_feedback_line_feed();
-  printPgmString(PSTR("[OPT:")); // Generate compile-time build option list
-  #ifdef VARIABLE_SPINDLE
+void GRBLReport::build_info(char *line) {
+    printPgmString(PSTR("[VER:" GRBL_VERSION "." GRBL_VERSION_BUILD ":"));
+    printString(line);
+    report_util_feedback_line_feed();
+    printPgmString(PSTR("[OPT:")); // Generate compile-time build option list
+    #ifdef VARIABLE_SPINDLE
     grbl.serial.write('V');
-  #endif
-  #ifdef USE_LINE_NUMBERS
+    #endif
+    #ifdef USE_LINE_NUMBERS
     grbl.serial.write('N');
-  #endif
-  #ifdef ENABLE_M7
+    #endif
+    #ifdef ENABLE_M7
     grbl.serial.write('M');
-  #endif
-  #ifdef COREXY
+    #endif
+    #ifdef COREXY
     grbl.serial.write('C');
-  #endif
-  #ifdef PARKING_ENABLE
+    #endif
+    #ifdef PARKING_ENABLE
     grbl.serial.write('P');
-  #endif
-  #ifdef HOMING_FORCE_SET_ORIGIN
+    #endif
+    #ifdef HOMING_FORCE_SET_ORIGIN
     grbl.serial.write('Z');
-  #endif
-  #ifdef HOMING_SINGLE_AXIS_COMMANDS
+    #endif
+    #ifdef HOMING_SINGLE_AXIS_COMMANDS
     grbl.serial.write('H');
-  #endif
-  #ifdef LIMITS_TWO_SWITCHES_ON_AXES
+    #endif
+    #ifdef LIMITS_TWO_SWITCHES_ON_AXES
     grbl.serial.write('T');
-  #endif
-  #ifdef ALLOW_FEED_OVERRIDE_DURING_PROBE_CYCLES
+    #endif
+    #ifdef ALLOW_FEED_OVERRIDE_DURING_PROBE_CYCLES
     grbl.serial.write('A');
-  #endif
+    #endif
 	#ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
     grbl.serial.write('D');
 	#endif
@@ -402,22 +401,22 @@ void GRBLReport::build_info(char *line)
 	#endif
 	#ifndef ENABLE_RESTORE_EEPROM_WIPE_ALL // NOTE: Shown when disabled.
     grbl.serial.write('*');
-  #endif
-  #ifndef ENABLE_RESTORE_EEPROM_DEFAULT_SETTINGS // NOTE: Shown when disabled.
+    #endif
+    #ifndef ENABLE_RESTORE_EEPROM_DEFAULT_SETTINGS // NOTE: Shown when disabled.
     grbl.serial.write('$');
-  #endif
-  #ifndef ENABLE_RESTORE_EEPROM_CLEAR_PARAMETERS // NOTE: Shown when disabled.
+    #endif
+    #ifndef ENABLE_RESTORE_EEPROM_CLEAR_PARAMETERS // NOTE: Shown when disabled.
     grbl.serial.write('#');
-  #endif
-  #ifndef ENABLE_BUILD_INFO_WRITE_COMMAND // NOTE: Shown when disabled.
+    #endif
+    #ifndef ENABLE_BUILD_INFO_WRITE_COMMAND // NOTE: Shown when disabled.
     grbl.serial.write('I');
-  #endif
-  #ifndef FORCE_BUFFER_SYNC_DURING_EEPROM_WRITE // NOTE: Shown when disabled.
+    #endif
+    #ifndef FORCE_BUFFER_SYNC_DURING_EEPROM_WRITE // NOTE: Shown when disabled.
     grbl.serial.write('E');
-  #endif
-  #ifndef FORCE_BUFFER_SYNC_DURING_WCO_CHANGE // NOTE: Shown when disabled.
+    #endif
+    #ifndef FORCE_BUFFER_SYNC_DURING_WCO_CHANGE // NOTE: Shown when disabled.
     grbl.serial.write('W');
-  #endif
+    #endif
 	#ifndef HOMING_INIT_LOCK
     grbl.serial.write('L');
 	#endif
@@ -485,108 +484,106 @@ void GRBLReport::realtime_status() {
         case STATE_SLEEP: printPgmString(PSTR("Sleep")); break;
     }
 
-  float wco[N_AXIS];
-  if (bit_isfalse(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE) ||
-    (grbl.sys.report_wco_counter == 0)) {
-    for (idx = 0; idx< N_AXIS; idx++) {
-      // Apply work coordinate offsets and tool length offset to current position.
-      wco[idx] = grbl.gcode.state.coord_system[idx] + grbl.gcode.state.coord_offset[idx];
-      if (idx == TOOL_LENGTH_OFFSET_AXIS) { wco[idx] += grbl.gcode.state.tool_length_offset; }
-      if (bit_isfalse(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE)) {
-        print_position[idx] -= wco[idx];
-      }
+    float wco[N_AXIS];
+    if (bit_isfalse(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE) || (grbl.sys.report_wco_counter == 0)) {
+        for (idx = 0; idx< N_AXIS; idx++) {
+            // Apply work coordinate offsets and tool length offset to current position.
+            wco[idx] = grbl.gcode.state.coord_system[idx] + grbl.gcode.state.coord_offset[idx];
+            if (idx == TOOL_LENGTH_OFFSET_AXIS) { wco[idx] += grbl.gcode.state.tool_length_offset; }
+            if (bit_isfalse(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE)) {
+                print_position[idx] -= wco[idx];
+            }
+        }
     }
-  }
 
-  // Report machine position
-  if (bit_istrue(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE)) {
-    printPgmString(PSTR("|MPos:"));
-  }
-  else {
-    printPgmString(PSTR("|WPos:"));
-  }
-  report_util_axis_values(print_position);
-
-  // Returns planner and serial read buffer states.
-#ifdef REPORT_FIELD_BUFFER_STATE
-  if (bit_istrue(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_BUFFER_STATE)) {
-    printPgmString(PSTR("|Bf:"));
-    print_uint8_base10(grbl.planner.get_block_buffer_available());
-      grbl.serial.write(',');
-    print_uint8_base10(grbl.serial.get_rx_buffer_available());
-  }
-#endif
-
-#ifdef USE_LINE_NUMBERS
-#ifdef REPORT_FIELD_LINE_NUMBERS
-  // Report current line number
-  plan_block_t * cur_block = plan_get_current_block();
-  if (cur_block != NULL) {
-    uint32_t ln = cur_block->line_number;
-    if (ln > 0) {
-      printPgmString(PSTR("|Ln:"));
-      printInteger(ln);
+    // Report machine position
+    if (bit_istrue(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE)) {
+        printPgmString(PSTR("|MPos:"));
+    } else {
+        printPgmString(PSTR("|WPos:"));
     }
-  }
-#endif
-#endif
+    report_util_axis_values(print_position);
 
-  // Report realtime feed speed
-#ifdef REPORT_FIELD_CURRENT_FEED_SPEED
-#ifdef VARIABLE_SPINDLE
+    // Returns planner and serial read buffer states.
+    #ifdef REPORT_FIELD_BUFFER_STATE
+    if (bit_istrue(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_BUFFER_STATE)) {
+        printPgmString(PSTR("|Bf:"));
+        print_uint8_base10(grbl.planner.get_block_buffer_available());
+        grbl.serial.write(',');
+        print_uint8_base10(grbl.serial.get_rx_buffer_available());
+    }
+    #endif
+
+    #ifdef USE_LINE_NUMBERS
+    #ifdef REPORT_FIELD_LINE_NUMBERS
+    // Report current line number
+    plan_block_t * cur_block = grbl.planner.get_current_block();
+    if (cur_block != nullptr) {
+        uint32_t ln = cur_block->line_number;
+        if (ln > 0) {
+            printPgmString(PSTR("|Ln:"));
+            printInteger(ln);
+        }
+    }
+    #endif
+    #endif
+
+    // Report realtime feed speed
+    #ifdef REPORT_FIELD_CURRENT_FEED_SPEED
+    #ifdef VARIABLE_SPINDLE
     printPgmString(PSTR("|FS:"));
     printFloat_RateValue(grbl.steppers.get_realtime_rate());
     grbl.serial.write(',');
     printFloat(grbl.sys.spindle_speed, N_DECIMAL_RPMVALUE);
-#else
-  printPgmString(PSTR("|F:"));
-  printFloat_RateValue(st_get_realtime_rate());
-#endif      
-#endif
+    #else
+    printPgmString(PSTR("|F:"));
+    printFloat_RateValue(st_get_realtime_rate());
+    #endif
+    #endif
 
-#ifdef REPORT_FIELD_PIN_STATE
-  uint8_t lim_pin_state = grbl.limits.get_state();
-  uint8_t ctrl_pin_state = grbl.system.control_get_state();
-  uint8_t prb_pin_state = grbl.probe.get_state();
-  if (lim_pin_state | ctrl_pin_state | prb_pin_state) {
-    printPgmString(PSTR("|Pn:"));
-    if (prb_pin_state) { grbl.serial.write('P'); }
-    if (lim_pin_state) {
-      if (bit_istrue(lim_pin_state, bit(X_AXIS))) { grbl.serial.write('X'); }
-      if (bit_istrue(lim_pin_state, bit(Y_AXIS))) { grbl.serial.write('Y'); }
-      if (bit_istrue(lim_pin_state, bit(Z_AXIS))) { grbl.serial.write('Z'); }
+    #ifdef REPORT_FIELD_PIN_STATE
+    uint8_t lim_pin_state = grbl.limits.get_state();
+    uint8_t ctrl_pin_state = grbl.system.control_get_state();
+    uint8_t prb_pin_state = grbl.probe.get_state();
+    if (lim_pin_state | ctrl_pin_state | prb_pin_state) {
+        printPgmString(PSTR("|Pn:"));
+        if (prb_pin_state) { grbl.serial.write('P'); }
+        if (lim_pin_state) {
+            if (bit_istrue(lim_pin_state, bit(X_AXIS))) { grbl.serial.write('X'); }
+            if (bit_istrue(lim_pin_state, bit(Y_AXIS))) { grbl.serial.write('Y'); }
+            if (bit_istrue(lim_pin_state, bit(Z_AXIS))) { grbl.serial.write('Z'); }
+        }
+        if (ctrl_pin_state) {
+            #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
+            if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_SAFETY_DOOR)) { grbl.serial.write('D'); }
+            #endif
+            if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_RESET)) { grbl.serial.write('R'); }
+            if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_FEED_HOLD)) { grbl.serial.write('H'); }
+            if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_CYCLE_START)) { grbl.serial.write('S'); }
+        }
     }
-    if (ctrl_pin_state) {
-#ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
-      if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_SAFETY_DOOR)) { serial_write('D'); }
-#endif
-      if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_RESET)) { grbl.serial.write('R'); }
-      if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_FEED_HOLD)) { grbl.serial.write('H'); }
-      if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_CYCLE_START)) { grbl.serial.write('S'); }
-    }
-  }
-#endif
+    #endif
 
-#ifdef REPORT_FIELD_WORK_COORD_OFFSET
-  if (grbl.sys.report_wco_counter > 0) { grbl.sys.report_wco_counter--; }
-  else {
-    if (grbl.sys.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
-        grbl.sys.report_wco_counter = (REPORT_WCO_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
+    #ifdef REPORT_FIELD_WORK_COORD_OFFSET
+    if (grbl.sys.report_wco_counter > 0) { grbl.sys.report_wco_counter--; }
+    else {
+        if (grbl.sys.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
+            grbl.sys.report_wco_counter = (REPORT_WCO_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
+        }
+        else { grbl.sys.report_wco_counter = (REPORT_WCO_REFRESH_IDLE_COUNT - 1); }
+        if (grbl.sys.report_ovr_counter == 0) { grbl.sys.report_ovr_counter = 1; } // Set override on next report.
+        printPgmString(PSTR("|WCO:"));
+        report_util_axis_values(wco);
     }
-    else { grbl.sys.report_wco_counter = (REPORT_WCO_REFRESH_IDLE_COUNT - 1); }
-    if (grbl.sys.report_ovr_counter == 0) { grbl.sys.report_ovr_counter = 1; } // Set override on next report.
-    printPgmString(PSTR("|WCO:"));
-    report_util_axis_values(wco);
-  }
-#endif
+    #endif
 
-  #ifdef REPORT_FIELD_OVERRIDES
+    #ifdef REPORT_FIELD_OVERRIDES
     if (grbl.sys.report_ovr_counter > 0) { grbl.sys.report_ovr_counter--; }
     else {
-      if (grbl.sys.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
-          grbl.sys.report_ovr_counter = (REPORT_OVR_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
-      }
-      else { grbl.sys.report_ovr_counter = (REPORT_OVR_REFRESH_IDLE_COUNT - 1); }
+        if (grbl.sys.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
+            grbl.sys.report_ovr_counter = (REPORT_OVR_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
+        }
+        else { grbl.sys.report_ovr_counter = (REPORT_OVR_REFRESH_IDLE_COUNT - 1); }
         printPgmString(PSTR("|Ov:"));
         print_uint8_base10(grbl.sys.f_override);
         grbl.serial.write(',');
@@ -594,32 +591,32 @@ void GRBLReport::realtime_status() {
         grbl.serial.write(',');
         print_uint8_base10(grbl.sys.spindle_speed_ovr);
 
-      uint8_t sp_state = grbl.spindle.get_state();
-      uint8_t cl_state = grbl.coolant.get_state();
-      if (sp_state || cl_state) {
-        printPgmString(PSTR("|A:"));
-        if (sp_state) { // != SPINDLE_STATE_DISABLE
-          #ifdef VARIABLE_SPINDLE 
-            #ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
-              serial_write('S'); // CW
-            #else
-              if (sp_state == SPINDLE_STATE_CW) { grbl.serial.write('S'); } // CW
-              else { grbl.serial.write('C'); } // CCW
+        uint8_t sp_state = grbl.spindle.get_state();
+        uint8_t cl_state = grbl.coolant.get_state();
+        if (sp_state || cl_state) {
+            printPgmString(PSTR("|A:"));
+            if (sp_state) { // != SPINDLE_STATE_DISABLE
+                #ifdef VARIABLE_SPINDLE
+                #ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
+                grbl.serial.write('S'); // CW
+                #else
+                if (sp_state == SPINDLE_STATE_CW) { grbl.serial.write('S'); } // CW
+                else { grbl.serial.write('C'); } // CCW
+                #endif
+                #else
+                if (sp_state & SPINDLE_STATE_CW) { grbl.serial.write('S'); } // CW
+                else { grbl.serial.write('C'); } // CCW
+                #endif
+            }
+            if (cl_state & COOLANT_STATE_FLOOD) { grbl.serial.write('F'); }
+            #ifdef ENABLE_M7
+            if (cl_state & COOLANT_STATE_MIST) { grbl.serial.write('M'); }
             #endif
-          #else
-            if (sp_state & SPINDLE_STATE_CW) { serial_write('S'); } // CW
-            else { serial_write('C'); } // CCW
-          #endif
         }
-        if (cl_state & COOLANT_STATE_FLOOD) { grbl.serial.write('F'); }
-        #ifdef ENABLE_M7
-          if (cl_state & COOLANT_STATE_MIST) { serial_write('M'); }
-        #endif
-      }
     }
-  #endif
+    #endif
 
-     grbl.serial.write('>');
+    grbl.serial.write('>');
     report_util_line_feed();
 }
 

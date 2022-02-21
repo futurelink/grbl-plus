@@ -23,7 +23,7 @@
 #ifndef stepper_h
 #define stepper_h
 
-#include "../stm32/stm32_helpers.h"
+#include "../stm32/stm32_routines.h"
 
 #ifndef SEGMENT_BUFFER_SIZE
 #define SEGMENT_BUFFER_SIZE 10

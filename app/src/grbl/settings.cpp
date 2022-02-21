@@ -1,9 +1,10 @@
 /*
-  settings.c - eeprom configuration handling
+  settings.c - settings handling
   Part of Grbl
 
   Copyright (c) 2011-2016 Sungeun K. Jeon for Gnea Research LLC
   Copyright (c) 2009-2011 Simen Svale Skogsrud
+  Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -139,7 +140,6 @@ void GRBLSettings::restore(uint8_t restore_flag) {
     }
 }
 
-
 // Reads startup line from EEPROM. Updated pointed line string data.
 uint8_t GRBLSettings::read_startup_line(uint8_t n, char *line) {
     uint32_t addr = n*(LINE_BUFFER_SIZE+1)+EEPROM_ADDR_STARTUP_BLOCK;
@@ -163,7 +163,6 @@ uint8_t GRBLSettings::read_build_info(char *line) {
     return (true);
 }
 
-
 // Read selected coordinate data from EEPROM. Updates pointed coord_data value.
 uint8_t GRBLSettings::read_coord_data(uint8_t coord_select, float *coord_data) {
     uint32_t addr = coord_select*(sizeof(float)*N_AXIS+1) + EEPROM_ADDR_PARAMETERS;
@@ -177,7 +176,6 @@ uint8_t GRBLSettings::read_coord_data(uint8_t coord_select, float *coord_data) {
     }
     return (true);
 }
-
 
 // Reads Grbl global settings struct from EEPROM.
 uint8_t GRBLSettings::read_global() {
@@ -194,7 +192,6 @@ uint8_t GRBLSettings::read_global() {
 
     return (true);
 }
-
 
 // A helper method to set settings from command line
 uint8_t GRBLSettings::store_global(uint8_t parameter, float value) {

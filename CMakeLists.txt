@@ -1,14 +1,11 @@
 set(CMAKE_TOOLCHAIN_FILE stm32-f1xx.cmake)
 
-#set(CMAKE_VERBOSE_MAKEFILE ON)
-
 project(stm32-grbl C CXX ASM)
 
 cmake_minimum_required(VERSION 3.5.0)
 
 add_definitions(-DSTM32F103xB)
 add_definitions(-DHSE_VALUE=8000000L)
-add_definitions(-DF_CPU=72000000L)
 
 # Add project subdirectories
 add_subdirectory(Drivers)

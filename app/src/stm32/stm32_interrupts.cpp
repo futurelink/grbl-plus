@@ -2,8 +2,6 @@
   stm32_interrupts.h - hardware specific interrupt handlers
   Part of Grbl
 
-  Copyright (c) 2012-2016 Sungeun K. Jeon for Gnea Research LLC
-  Copyright (c) 2009-2011 Simen Svale Skogsrud
   Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
@@ -21,10 +19,9 @@
 */
 
 #include "grbl/grbl.h"
-#include "stm32f1xx_hal.h"
-#include "stm32/stm32f1xx_it.h"
 
-void serial_tx();
+#include "stm32f1xx_hal.h"
+#include "stm32/stm32_interrupts.h"
 
 extern PCD_HandleTypeDef hpcd_USB_FS;
 
@@ -83,7 +80,9 @@ void EXTI9_5_IRQHandler(void) {
 }
 
 void EXTI15_10_IRQHandler(void) {
-    stm32_limits_clear();
+    __HAL_GPIO_EXTI_CLEAR_IT((1 << X_LIMIT_BIT) | (1 << Y_LIMIT_BIT) | (1 << Z_LIMIT_BIT));
+    NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
+
     grbl.limits.external_interrupt_handle();
 }
 

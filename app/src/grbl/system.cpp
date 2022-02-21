@@ -20,7 +20,7 @@
 */
 
 #include "grbl/grbl.h"
-#include "stm32/stm32_helpers.h"
+#include "stm32/stm32_routines.h"
 
 void GRBLSystem::init() {
     stm32_system_init();
@@ -59,15 +59,15 @@ void GRBLSystem::external_interrupts_handle() {
         } else if (bit_istrue(pin, CONTROL_PIN_INDEX_CYCLE_START)) {
             bit_true(grbl.sys_rt_exec_state, EXEC_CYCLE_START);
         }
-#ifndef ENABLE_SAFETY_DOOR_INPUT_PIN
+        #ifndef ENABLE_SAFETY_DOOR_INPUT_PIN
         else if (bit_istrue(pin, CONTROL_PIN_INDEX_FEED_HOLD)) {
             bit_true(grbl.sys_rt_exec_state, EXEC_FEED_HOLD);
         }
-#else
+        #else
         else if (bit_istrue(pin, CONTROL_PIN_INDEX_SAFETY_DOOR)) {
-			bit_true(sys_rt_exec_state, EXEC_SAFETY_DOOR);
+			bit_true(grbl.sys_rt_exec_state, EXEC_SAFETY_DOOR);
 		}
-#endif
+        #endif
 
     }
 }
@@ -75,7 +75,7 @@ void GRBLSystem::external_interrupts_handle() {
 // Returns if safety door is ajar(T) or closed(F), based on pin state.
 uint8_t GRBLSystem::check_safety_door_ajar() {
     #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
-        return(system_control_get_state() & CONTROL_PIN_INDEX_SAFETY_DOOR);
+        return(grbl.system.control_get_state() & CONTROL_PIN_INDEX_SAFETY_DOOR);
     #else
         return(false); // Input pin not enabled, so just return that it's closed.
     #endif
@@ -179,9 +179,9 @@ uint8_t GRBLSystem::execute_line(char *line) {
                         #ifdef HOMING_SINGLE_AXIS_COMMANDS
                         } else if (line[3] == 0) {
               switch (line[2]) {
-                case 'X': mc_homing_cycle(HOMING_CYCLE_X); break;
-                case 'Y': mc_homing_cycle(HOMING_CYCLE_Y); break;
-                case 'Z': mc_homing_cycle(HOMING_CYCLE_Z); break;
+                case 'X': grbl.motion.homing_cycle(HOMING_CYCLE_X); break;
+                case 'Y': grbl.motion.homing_cycle(HOMING_CYCLE_Y); break;
+                case 'Z': grbl.motion.homing_cycle(HOMING_CYCLE_Z); break;
                 default: return(STATUS_INVALID_STATEMENT);
               }
                         #endif
@@ -289,11 +289,11 @@ float GRBLSystem::convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx) {
     float pos;
     #ifdef COREXY
     if (idx == X_AXIS) {
-        pos = (float)system_convert_corexy_to_x_axis_steps(steps) / settings.steps_per_mm[idx];
+        pos = (float)grbl.system.convert_corexy_to_x_axis_steps(steps) / grbl.settings.steps_per_mm(idx);
     } else if (idx == Y_AXIS) {
-        pos = (float)system_convert_corexy_to_y_axis_steps(steps) / settings.steps_per_mm[idx];
+        pos = (float)grbl.system.convert_corexy_to_y_axis_steps(steps) / grbl.settings.steps_per_mm(idx);
     } else {
-        pos = steps[idx]/settings.steps_per_mm[idx];
+        pos = (float)steps[idx] / grbl.settings.steps_per_mm(idx);
     }
     #else
     pos = steps[idx]/grbl.settings.steps_per_mm(idx);
@@ -329,12 +329,12 @@ uint8_t GRBLSystem::check_travel_limits(float *target) {
     for (idx=0; idx<N_AXIS; idx++) {
         #ifdef HOMING_FORCE_SET_ORIGIN
         // When homing forced set origin is enabled, soft limits checks need to account for directionality.
-      // NOTE: max_travel is stored as negative
-      if (bit_istrue(settings.homing_dir_mask,bit(idx))) {
-        if (target[idx] < 0 || target[idx] > -settings.max_travel[idx]) { return(true); }
-      } else {
-        if (target[idx] > 0 || target[idx] < settings.max_travel[idx]) { return(true); }
-      }
+        // NOTE: max_travel is stored as negative
+        if (bit_istrue(grbl.settings.homing_dir_mask(),bit(idx))) {
+            if (target[idx] < 0 || target[idx] > - grbl.settings.max_travel(idx)) { return(true); }
+        } else {
+            if (target[idx] > 0 || target[idx] < grbl.settings.max_travel(idx)) { return(true); }
+        }
         #else
         // NOTE: max_travel is stored as negative
         if (target[idx] > 0 || target[idx] < grbl.settings.max_travel(idx)) { return(true); }

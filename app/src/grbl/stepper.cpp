@@ -22,7 +22,7 @@
 
 #include "grbl/grbl.h"
 
-#include "stm32/stm32_helpers.h"
+#include "stm32/stm32_routines.h"
 
 /* Prepares step segment buffer. Continuously called from main program.
 

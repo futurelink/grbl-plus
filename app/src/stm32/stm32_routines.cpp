@@ -1,9 +1,7 @@
 /*
-  stm32_routines.h - hardware specific routines
+  stm32_routines.cpp - hardware specific routines
   Part of Grbl
 
-  Copyright (c) 2012-2016 Sungeun K. Jeon for Gnea Research LLC
-  Copyright (c) 2009-2011 Simen Svale Skogsrud
   Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
@@ -22,7 +20,7 @@
 
 #include "grbl/grbl.h"
 
-#include "stm32/stm32_helpers.h"
+#include "stm32/stm32_routines.h"
 #include "stm32/usb/usb_device.h"
 
 #define EEPROM_START_ADDRESS    ((uint32_t)0x0801fc00) // Last 1K page (127K offset)
@@ -105,7 +103,7 @@ static void GPIO_Init() {
     HAL_GPIO_Init(GPIOC, &GPIO_Init);
 }
 
-void TIM_Configuration(TIM_TypeDef* TIMER, uint16_t Period, uint16_t Prescaler, uint8_t PP)
+void stm32_config_timer(TIM_TypeDef* TIMER, uint16_t Period, uint16_t Prescaler, uint8_t PP)
 {
     TIM_HandleTypeDef htim = {};
     htim.Instance = TIMER;
@@ -213,10 +211,10 @@ void stm32_stepper_init() {
     HAL_GPIO_Init(DIRECTION_PORT, &gpio);
 
     __HAL_RCC_TIM2_CLK_ENABLE();
-    TIM_Configuration(TIM2, 1, 1, 1);
+    stm32_config_timer(TIM2, 1, 1, 1);
 
     __HAL_RCC_TIM3_CLK_ENABLE();
-    TIM_Configuration(TIM3, 1, 1, 1);
+    stm32_config_timer(TIM3, 1, 1, 1);
 
     NVIC_DisableIRQ(TIM3_IRQn);
     NVIC_DisableIRQ(TIM2_IRQn);
@@ -256,19 +254,6 @@ void stm32_limits_enable() {
 
 void stm32_limits_disable() {
     NVIC_DisableIRQ(EXTI15_10_IRQn);
-}
-
-void stm32_limits_clear() {
-    if (__HAL_GPIO_EXTI_GET_IT(1 << X_LIMIT_BIT) != RESET) {
-        __HAL_GPIO_EXTI_CLEAR_IT(1 << X_LIMIT_BIT);
-    }
-    if (__HAL_GPIO_EXTI_GET_IT(1 << Y_LIMIT_BIT) != RESET) {
-        __HAL_GPIO_EXTI_CLEAR_IT(1 << Y_LIMIT_BIT);
-    }
-    if (__HAL_GPIO_EXTI_GET_IT(1 << Z_LIMIT_BIT) != RESET) {
-        __HAL_GPIO_EXTI_CLEAR_IT(1 << Z_LIMIT_BIT);
-    }
-    NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
 }
 
 void stm32_spindle_init() {

@@ -20,7 +20,7 @@
 */
 
 #include "grbl/grbl.h"
-#include "stm32/stm32_helpers.h"
+#include "stm32/stm32_routines.h"
 
 void GRBLEEPROM::flush() {
     stm32_eeprom_flush();

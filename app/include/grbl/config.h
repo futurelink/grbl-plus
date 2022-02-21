@@ -118,12 +118,12 @@
 // cycle is still invoked by the $H command. This is disabled by default. It's here only to address
 // users that need to switch between a two-axis and three-axis machine. This is actually very rare.
 // If you have a two-axis machine, DON'T USE THIS. Instead, just alter the homing cycle for two-axes.
-// #define HOMING_SINGLE_AXIS_COMMANDS // Default disabled. Uncomment to enable.
+//#define HOMING_SINGLE_AXIS_COMMANDS // Default disabled. Uncomment to enable.
 
 // After homing, Grbl will set by default the entire machine space into negative space, as is typical
 // for professional CNC machines, regardless of where the limit switches are located. Uncomment this
 // define to force Grbl to always set the machine origin at the homed location despite switch orientation.
-// #define HOMING_FORCE_SET_ORIGIN // Uncomment to enable.
+//#define HOMING_FORCE_SET_ORIGIN // Uncomment to enable.
 
 // Number of blocks Grbl executes upon startup. These blocks are stored in EEPROM, where the size
 // and addresses are defined in settings.h. With the current settings, up to 2 startup blocks may
@@ -149,7 +149,7 @@
 // alarm out and force the user to manually disengage the limit switch. Otherwise, if you have one
 // limit switch for each axis, don't enable this option. By keeping it disabled, you can perform a
 // homing cycle while on the limit switch and not have to move the machine off of it.
-// #define LIMITS_TWO_SWITCHES_ON_AXES
+//#define LIMITS_TWO_SWITCHES_ON_AXES
 
 // Allows GRBL to track and report gcode line numbers.  Enabling this means that the planning buffer
 // goes from 16 to 15 to make room for the additional line number data in the plan_block_t struct
@@ -163,13 +163,13 @@
 // Enables a second coolant control pin via the mist coolant g-code command M7 on the Arduino Uno
 // analog pin 4. Only use this option if you require a second coolant control pin.
 // NOTE: The M8 flood coolant control pin on analog pin 3 will still be functional regardless.
-// #define ENABLE_M7 // Disabled by default. Uncomment to enable.
+//#define ENABLE_M7 // Disabled by default. Uncomment to enable.
 
 // This option causes the feed hold input to act as a safety door switch. A safety door, when triggered,
 // immediately forces a feed hold and then safely de-energizes the machine. Resuming is blocked until
 // the safety door is re-engaged. When it is, Grbl will re-energize the machine and then resume on the
 // previous tool path, as if nothing happened.
-// #define ENABLE_SAFETY_DOOR_INPUT_PIN // Default disabled. Uncomment to enable.
+//#define ENABLE_SAFETY_DOOR_INPUT_PIN // Default disabled. Uncomment to enable.
 
 // After the safety door switch has been toggled and restored, this setting sets the power-up delay
 // between restoring the spindle and coolant and resuming the cycle.
@@ -183,7 +183,7 @@
 // defined at (http://corexy.com/theory.html). Motors are assumed to positioned and wired exactly as
 // described, if not, motions may move in strange directions. Grbl requires the CoreXY A and B motors
 // have the same steps per mm internally.
-// #define COREXY // Default disabled. Uncomment to enable.
+//#define COREXY // Default disabled. Uncomment to enable.
 
 // Inverts pin logic of the control command pins based on a mask. This essentially means you can use
 // normally-closed switches on the specified pins, rather than the default normally-open switches.

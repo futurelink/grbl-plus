@@ -83,9 +83,9 @@ void GRBLLimits::external_interrupt_handle() {
         if (!(grbl.sys_rt_exec_alarm)) {
             #ifdef HARD_LIMIT_FORCE_STATE_CHECK
             // Check limit pin state.
-            if (limits_get_state()) {
-                mc_reset(); // Initiate system kill.
-                system_set_exec_alarm(EXEC_ALARM_HARD_LIMIT); // Indicate hard limit critical event
+            if (grbl.limits.get_state()) {
+                grbl.motion.reset(); // Initiate system kill.
+                grbl.system.set_exec_alarm(EXEC_ALARM_HARD_LIMIT); // Indicate hard limit critical event
             }
             #else
             grbl.motion.reset(); // Initiate system kill.
@@ -146,13 +146,15 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
         // Initialize step pin masks
         step_pin[idx] = grbl.steppers.step_pin_mask_bit(idx);
         #ifdef COREXY
-        if ((idx==A_MOTOR)||(idx==B_MOTOR)) { step_pin[idx] = (step_pin_mask[X_AXIS]| step_pin_mask[Y_AXIS]); }
+        if ((idx==A_MOTOR) || (idx==B_MOTOR)) {
+            step_pin[idx] = grbl.steppers.step_pin_mask_bit(X_AXIS) | grbl.steppers.step_pin_mask_bit(Y_AXIS);
+        }
         #endif
 
-        if (bit_istrue(cycle_mask,bit(idx))) {
+        if (bit_istrue(cycle_mask, bit(idx))) {
           // Set target based on max_travel setting. Ensure homing switches engaged with search scalar.
           // NOTE: settings.max_travel[] is stored as a negative value.
-          max_travel = max(max_travel,(-HOMING_AXIS_SEARCH_SCALAR)*grbl.settings.max_travel(idx));
+          max_travel = max(max_travel, (-HOMING_AXIS_SEARCH_SCALAR) * grbl.settings.max_travel(idx));
         }
     }
 
@@ -173,7 +175,7 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
                 n_active_axis++;
                 #ifdef COREXY
                 if (idx == X_AXIS) {
-                    int32_t axis_position = grbl.system.convert_corexy_to_y_axis_steps(sys_position);
+                    int32_t axis_position = grbl.system.convert_corexy_to_y_axis_steps(grbl.sys_position);
                     grbl.sys_position[A_MOTOR] = axis_position;
                     grbl.sys_position[B_MOTOR] = -axis_position;
                 } else if (idx == Y_AXIS) {
@@ -292,12 +294,12 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
             #endif
 
             #ifdef COREXY
-            if (idx==X_AXIS) {
+            if (idx == X_AXIS) {
                 int32_t off_axis_position = grbl.system.convert_corexy_to_y_axis_steps(grbl.sys_position);
                 grbl.sys_position[A_MOTOR] = set_axis_position + off_axis_position;
                 grbl.sys_position[B_MOTOR] = set_axis_position - off_axis_position;
-            } else if (idx==Y_AXIS) {
-                int32_t off_axis_position = system_convert_corexy_to_x_axis_steps(grbl.sys_position);
+            } else if (idx == Y_AXIS) {
+                int32_t off_axis_position = grbl.system.convert_corexy_to_x_axis_steps(grbl.sys_position);
                 grbl.sys_position[A_MOTOR] = off_axis_position + set_axis_position;
                 grbl.sys_position[B_MOTOR] = off_axis_position - set_axis_position;
             } else {
