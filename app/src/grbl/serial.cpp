@@ -99,12 +99,16 @@ uint8_t GRBLSerial::read() {
     }
 }
 
-void OnUsbDataRx(uint8_t* dataIn, uint8_t length) {
-	uint8_t next_head;
+void GRBLSerial::reset_read_buffer() {
+    rx_buffer_tail = rx_buffer_head;
+}
+
+void serial_receive_data(uint8_t* dataIn, uint8_t length) {
+    uint8_t next_head;
     uint8_t data;
 
-	// Write data to buffer unless it is full.
-	while (length != 0) {
+    // Write data to buffer unless it is full.
+    while (length != 0) {
         data = *dataIn ++;
 
         // Pick off realtime command characters directly from the serial stream. These characters are
@@ -114,53 +118,50 @@ void OnUsbDataRx(uint8_t* dataIn, uint8_t length) {
             case CMD_STATUS_REPORT: grbl.system.set_exec_state_flag(EXEC_STATUS_REPORT); break; // Set as true
             case CMD_CYCLE_START:   grbl.system.set_exec_state_flag(EXEC_CYCLE_START); break; // Set as true
             case CMD_FEED_HOLD:     grbl.system.set_exec_state_flag(EXEC_FEED_HOLD); break; // Set as true
-            default : if (data > 0x7F) { // Real-time control characters are extended ACSII only.
-                switch(data) {
-                case CMD_SAFETY_DOOR:   grbl.system.set_exec_state_flag(EXEC_SAFETY_DOOR); break; // Set as true
-                case CMD_JOG_CANCEL:
-                    if (grbl.system.state & STATE_JOG) { // Block all other states from invoking motion cancel.
-                        grbl.system.set_exec_state_flag(EXEC_MOTION_CANCEL);
+            default:
+                if (data > 0x7F) { // Real-time control characters are extended ACSII only.
+                    switch(data) {
+                        case CMD_SAFETY_DOOR:   grbl.system.set_exec_state_flag(EXEC_SAFETY_DOOR); break; // Set as true
+                        case CMD_JOG_CANCEL:
+                            if (grbl.system.state & STATE_JOG) { // Block all other states from invoking motion cancel.
+                                grbl.system.set_exec_state_flag(EXEC_MOTION_CANCEL);
+                            }
+                            break;
+                        #ifdef DEBUG
+                        case CMD_DEBUG_REPORT: { bit_true(grbl.system.rt_exec_debug, EXEC_DEBUG_REPORT); } break;
+                        #endif
+                        case CMD_FEED_OVR_RESET: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_RESET); break;
+                        case CMD_FEED_OVR_COARSE_PLUS: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_COARSE_PLUS); break;
+                        case CMD_FEED_OVR_COARSE_MINUS: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_COARSE_MINUS); break;
+                        case CMD_FEED_OVR_FINE_PLUS: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_FINE_PLUS); break;
+                        case CMD_FEED_OVR_FINE_MINUS: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_FINE_MINUS); break;
+                        case CMD_RAPID_OVR_RESET: grbl.system.set_exec_motion_override_flag(EXEC_RAPID_OVR_RESET); break;
+                        case CMD_RAPID_OVR_MEDIUM: grbl.system.set_exec_motion_override_flag(EXEC_RAPID_OVR_MEDIUM); break;
+                        case CMD_RAPID_OVR_LOW: grbl.system.set_exec_motion_override_flag(EXEC_RAPID_OVR_LOW); break;
+                        case CMD_SPINDLE_OVR_RESET: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_RESET); break;
+                        case CMD_SPINDLE_OVR_COARSE_PLUS: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_COARSE_PLUS); break;
+                        case CMD_SPINDLE_OVR_COARSE_MINUS: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_COARSE_MINUS); break;
+                        case CMD_SPINDLE_OVR_FINE_PLUS: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_FINE_PLUS); break;
+                        case CMD_SPINDLE_OVR_FINE_MINUS: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_FINE_MINUS); break;
+                        case CMD_SPINDLE_OVR_STOP: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_STOP); break;
+                        case CMD_COOLANT_FLOOD_OVR_TOGGLE: grbl.system.set_exec_accessory_override_flag(EXEC_COOLANT_FLOOD_OVR_TOGGLE); break;
+                        #ifdef ENABLE_M7
+                        case CMD_COOLANT_MIST_OVR_TOGGLE: grbl.system.set_exec_accessory_override_flag(EXEC_COOLANT_MIST_OVR_TOGGLE); break;
+                        #endif
+                        default: break;
                     }
-                    break;
-                #ifdef DEBUG
-                    case CMD_DEBUG_REPORT: { bit_true(grbl.system.rt_exec_debug, EXEC_DEBUG_REPORT); } break;
-                #endif
-                case CMD_FEED_OVR_RESET: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_RESET); break;
-                case CMD_FEED_OVR_COARSE_PLUS: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_COARSE_PLUS); break;
-                case CMD_FEED_OVR_COARSE_MINUS: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_COARSE_MINUS); break;
-                case CMD_FEED_OVR_FINE_PLUS: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_FINE_PLUS); break;
-                case CMD_FEED_OVR_FINE_MINUS: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_FINE_MINUS); break;
-                case CMD_RAPID_OVR_RESET: grbl.system.set_exec_motion_override_flag(EXEC_RAPID_OVR_RESET); break;
-                case CMD_RAPID_OVR_MEDIUM: grbl.system.set_exec_motion_override_flag(EXEC_RAPID_OVR_MEDIUM); break;
-                case CMD_RAPID_OVR_LOW: grbl.system.set_exec_motion_override_flag(EXEC_RAPID_OVR_LOW); break;
-                case CMD_SPINDLE_OVR_RESET: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_RESET); break;
-                case CMD_SPINDLE_OVR_COARSE_PLUS: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_COARSE_PLUS); break;
-                case CMD_SPINDLE_OVR_COARSE_MINUS: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_COARSE_MINUS); break;
-                case CMD_SPINDLE_OVR_FINE_PLUS: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_FINE_PLUS); break;
-                case CMD_SPINDLE_OVR_FINE_MINUS: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_FINE_MINUS); break;
-                case CMD_SPINDLE_OVR_STOP: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_STOP); break;
-                case CMD_COOLANT_FLOOD_OVR_TOGGLE: grbl.system.set_exec_accessory_override_flag(EXEC_COOLANT_FLOOD_OVR_TOGGLE); break;
-                #ifdef ENABLE_M7
-                    case CMD_COOLANT_MIST_OVR_TOGGLE: grbl.system.set_exec_accessory_override_flag(EXEC_COOLANT_MIST_OVR_TOGGLE); break;
-                #endif
-                default: break;
-                }
-                // Throw away any unfound extended-ASCII character by not passing it to the serial buffer.
-            } else { // Write character to buffer
-                next_head = grbl.serial.rx_buffer_head + 1;
-                if (next_head == RX_RING_BUFFER) { next_head = 0; }
+                    // Throw away any unfound extended-ASCII character by not passing it to the serial buffer.
+                } else { // Write character to buffer
+                    next_head = grbl.serial.rx_buffer_head + 1;
+                    if (next_head == RX_RING_BUFFER) { next_head = 0; }
 
-                // Write data to buffer unless it is full.
-                if (next_head != grbl.serial.rx_buffer_tail) {
-                    grbl.serial.rx_buffer[grbl.serial.rx_buffer_head] = data;
-                    grbl.serial.rx_buffer_head = next_head;
+                    // Write data to buffer unless it is full.
+                    if (next_head != grbl.serial.rx_buffer_tail) {
+                        grbl.serial.rx_buffer[grbl.serial.rx_buffer_head] = data;
+                        grbl.serial.rx_buffer_head = next_head;
+                    }
                 }
-            }
         }
         length--;
     }
-}
-
-void GRBLSerial::reset_read_buffer() {
-    rx_buffer_tail = rx_buffer_head;
 }

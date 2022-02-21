@@ -16,7 +16,7 @@ extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
 uint8_t CDC_Transmit_FS(uint8_t* buf, uint16_t len);
 
 /* GRBL USB receive callback */
-void OnUsbDataRx(uint8_t* dataIn, uint8_t length);
+void serial_receive_data(uint8_t* dataIn, uint8_t length);
 
 #ifdef __cplusplus
 }

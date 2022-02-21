@@ -22,7 +22,6 @@
 
 #include "grbl/grbl.h"
 
-
 void printString(const char *s) {
     while (*s) grbl.serial.write(*s++);
 }
@@ -50,8 +49,7 @@ void printString(const char *s) {
 
 
 // Prints an uint8 variable in base 10.
-void print_uint8_base10(uint8_t n)
-{
+void print_uint8_base10(uint8_t n) {
   uint8_t digit_a = 0;
   uint8_t digit_b = 0;
   if (n >= 100) { // 100-255

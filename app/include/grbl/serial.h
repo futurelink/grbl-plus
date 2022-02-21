@@ -34,7 +34,7 @@ extern "C" {
 #define RX_RING_BUFFER (RX_BUFFER_SIZE)
 #define TX_RING_BUFFER (TX_BUFFER_SIZE)
 
-void OnUsbDataRx(uint8_t* dataIn, uint8_t length);
+void serial_receive_data(uint8_t* dataIn, uint8_t length);
 
 class GRBLSerial {
 public:

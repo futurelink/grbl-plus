@@ -29,8 +29,6 @@ extern "C" {
 
 void printString(const char *s);
 
-void printPgmString(const char *s);
-
 void printInteger(long n);
 
 void print_uint32_base10(uint32_t n);

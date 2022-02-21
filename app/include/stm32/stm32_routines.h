@@ -32,8 +32,6 @@ extern "C" {
 #define F_CPU                   SystemCoreClock
 #define PORTPINDEF              uint16_t
 #define PSTR(x)                 x
-#define pgm_read_byte_near(x)   *(x)
-#define printPgmString          printString
 
 void stm32_config_timer(TIM_TypeDef *TIMER, uint16_t Period, uint16_t Prescaler, uint8_t PP);
 
