@@ -1,8 +1,8 @@
 #include "stm32f1xx.h"
 #include "stm32f1xx_hal.h"
-#include "usb/core/usbd_def.h"
-#include "usb/core/usbd_core.h"
-#include "usb/core/usbd_cdc.h"
+#include "stm32/usb/core/usbd_def.h"
+#include "stm32/usb/core/usbd_core.h"
+#include "stm32/usb/core/usbd_cdc.h"
 
 PCD_HandleTypeDef hpcd_USB_FS;
 void Error_Handler(void);

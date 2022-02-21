@@ -29,21 +29,21 @@ extern "C" {
 class GRBLLimits {
 public:
     // Initialize the limits module
-    void init();
+    static void init();
 
     // Disables hard limits.
-    void disable();
+    static void disable();
 
     // Returns limit state as a bit-wise uint8 variable.
-    uint8_t get_state();
+    static uint8_t get_state();
 
     // Perform one portion of the homing cycle based on the input settings.
-    void go_home(uint8_t cycle_mask);
+    static void go_home(uint8_t cycle_mask);
 
     // Check for soft limit violations
-    void soft_check(float *target);
+    static void soft_check(float *target);
 
-    void external_interrupt_handle();
+    static void external_interrupt_handle();
 };
 
 #ifdef __cplusplus

@@ -3,6 +3,7 @@
   Part of Grbl
 
   Copyright (c) 2012-2016 Sungeun K. Jeon for Gnea Research LLC
+  Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -28,23 +29,13 @@ void GRBLCoolant::init() {
 // Returns current coolant output state. Overrides may alter it from programmed state.
 uint8_t GRBLCoolant::get_state() {
     uint8_t cl_state = COOLANT_STATE_DISABLE;
-    #ifdef INVERT_COOLANT_FLOOD_PIN
-    if (HAL_GPIO_ReadPin(COOLANT_FLOOD_PORT), COOLANT_FLOOD_BIT) == GPIO_PIN_RESET)
-    #else
-    if (HAL_GPIO_ReadPin(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT) == GPIO_PIN_SET)
-    #endif
-    {
+    if (stm32_get_flood_state()) {
         cl_state |= COOLANT_STATE_FLOOD;
     }
 
     #ifdef ENABLE_M7
-    #ifdef INVERT_COOLANT_MIST_PIN
-    if (HAL_GPIO_ReadPin(COOLANT_MIST_PORT, COOLANT_MIST_BIT) == GPIO_PIN_RESET)
-    #else
-    if (HAL_GPIO_ReadPin(COOLANT_MIST_PORT, COOLANT_MIST_BIT) == GPIO_PIN_SET)
-    #endif
-    {
-      cl_state |= COOLANT_STATE_MIST;
+    if (stm32_get_mist_state()) {
+        cl_state |= COOLANT_STATE_MIST;
     }
     #endif
 
@@ -55,18 +46,10 @@ uint8_t GRBLCoolant::get_state() {
 // Directly called by coolant_init(), coolant_set_state(), and mc_reset(), which can be at
 // an interrupt-level. No report flag set, but only called by routines that don't need it.
 void GRBLCoolant::stop() {
-    #ifdef INVERT_COOLANT_FLOOD_PIN
-    HAL_GPIO_WritePin(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT, GPIO_PIN_SET);
-    #else
-  	HAL_GPIO_WritePin(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT, GPIO_PIN_RESET);
-    #endif
+    stm32_set_flood_state(false);
 
     #ifdef ENABLE_M7
-    #ifdef INVERT_COOLANT_MIST_PIN
-        HAL_GPIO_WritePin(COOLANT_MIST_PORT, COOLANT_MIST_BIT, GPIO_PIN_SET);
-    #else
-        HAL_GPIO_WritePin(COOLANT_MIST_PORT, COOLANT_MIST_BIT, GPIO_PIN_RESET);
-    #endif
+    stm32_set_mist_state(false);
     #endif
 }
 
@@ -82,22 +65,14 @@ void GRBLCoolant::set_state(uint8_t mode) {
         stop();
     } else {
         if (mode & COOLANT_FLOOD_ENABLE) {
-            #ifdef INVERT_COOLANT_FLOOD_PIN
-            HAL_GPIO_WritePin(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT, GPIO_PIN_RESET);
-            #else
-            HAL_GPIO_WritePin(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT, GPIO_PIN_SET);
-            #endif
+            stm32_set_flood_state(true);
         }
   
         #ifdef ENABLE_M7
         if (mode & COOLANT_MIST_ENABLE) {
-            #ifdef INVERT_COOLANT_MIST_PIN
-            HAL_GPIO_WritePin(COOLANT_MIST_PORT, COOLANT_MIST_BIT, GPIO_PIN_RESET);
-            #else
-	        HAL_GPIO_WritePin(COOLANT_MIST_PORT, COOLANT_MIST_BIT, GPIO_PIN_SET);
-            #endif
+            stm32_set_mist_state(true);
         }
-    #endif
+        #endif
     }
     grbl.sys.report_ovr_counter = 0; // Set to report change immediately
 }

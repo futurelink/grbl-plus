@@ -45,6 +45,7 @@ find_program(OPENOCD openocd)
 message(STATUS "OpenOCD is in ${OPENOCD}")
 
 add_custom_target(Flash COMMAND ${OPENOCD} -f ${CMAKE_SOURCE_DIR}/openocd.cfg
-        -c "init; reset halt; program ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.hex verify reset exit")
+        #-c "init; reset; halt; program ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.hex verify; reset init; exit")
+        -c "init; reset; halt; flash write_image erase ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.hex; reset run; exit")
 
 add_dependencies(Flash ${PROJECT_NAME})

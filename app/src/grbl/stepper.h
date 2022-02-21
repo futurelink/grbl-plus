@@ -22,7 +22,7 @@
 #ifndef stepper_h
 #define stepper_h
 
-#include "stm32_helpers.h"
+#include "stm32/stm32_helpers.h"
 
 #ifndef SEGMENT_BUFFER_SIZE
 #define SEGMENT_BUFFER_SIZE 10
@@ -207,10 +207,10 @@ public:
 
 #ifdef PARKING_ENABLE
     // Changes the run state of the step segment buffer to execute the special parking motion.
-    void st_parking_setup_buffer();
+    void parking_setup_buffer();
 
     // Restores the step segment buffer to the normal run state after a parking motion.
-    void st_parking_restore_buffer();
+    void parking_restore_buffer();
 #endif
 
     // Reloads step segment buffer. Called continuously by realtime execution system.

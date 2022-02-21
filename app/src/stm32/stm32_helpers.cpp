@@ -1,16 +1,39 @@
-#include "stm32_helpers.h"
-#include "grbl.h"
+/*
+  stm32_routines.h - hardware specific routines
+  Part of Grbl
 
-#include "usb/usb_device.h"
+  Copyright (c) 2012-2016 Sungeun K. Jeon for Gnea Research LLC
+  Copyright (c) 2009-2011 Simen Svale Skogsrud
+  Copyright (c) 2022 Denis Pavlov
+
+  Grbl is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  Grbl is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+#include "../grbl/grbl.h"
+
+#include "stm32/stm32_helpers.h"
+#include "stm32/usb/usb_device.h"
 
 #define EEPROM_START_ADDRESS    ((uint32_t)0x0801fc00) // Last 1K page (127K offset)
+#define EEPROM_PAGE_SIZE        0x400
 
 int __errno; // To avoid undefined __errno when linking
 
-unsigned char EE_Buffer[0x400];
+unsigned char EE_Buffer[EEPROM_PAGE_SIZE];
 
-static void SystemClock_Config(void);
-static void GPIO_Init(void);
+static void SystemClock_Config();
+static void GPIO_Init();
 
 void stm32_init() {
     __HAL_RCC_PWR_CLK_ENABLE();
@@ -30,7 +53,7 @@ void stm32_init() {
     MX_USB_DEVICE_Init();
 
     HAL_FLASH_Unlock();
-    eeprom_init();
+    GRBLEEPROM::init();
     HAL_FLASH_Lock();
 }
 
@@ -38,7 +61,7 @@ void stm32_init() {
   * @brief System Clock Configuration
   * @retval None
   */
-void SystemClock_Config(void) {
+void SystemClock_Config() {
     RCC_OscInitTypeDef RCC_OscInitStruct = {
             .OscillatorType = RCC_OSCILLATORTYPE_HSE,
             .HSEState = RCC_HSE_ON,
@@ -69,7 +92,7 @@ void SystemClock_Config(void) {
   * @param None
   * @retval None
   */
-static void GPIO_Init(void) {
+static void GPIO_Init() {
     GPIO_InitTypeDef GPIO_Init;
     GPIO_Init.Pin = GPIO_PIN_5 | GPIO_PIN_6;
     GPIO_Init.Mode = GPIO_MODE_OUTPUT_OD;
@@ -225,6 +248,12 @@ void stm32_limits_init() {
     }
 }
 
+void stm32_limits_enable() {
+    __HAL_GPIO_EXTI_CLEAR_IT((1 << X_LIMIT_BIT) | (1 << Y_LIMIT_BIT) | (1 << Z_LIMIT_BIT));
+    NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
+    NVIC_EnableIRQ(EXTI15_10_IRQn);
+}
+
 void stm32_limits_disable() {
     NVIC_DisableIRQ(EXTI15_10_IRQn);
 }
@@ -348,4 +377,74 @@ uint8_t stm32_eeprom_get_char(uint32_t addr) {
 
 void stm32_eeprom_put_char(uint32_t addr, uint8_t value) {
     EE_Buffer[addr] = value;
+}
+
+uint8_t stm32_get_flood_state() {
+#ifdef INVERT_COOLANT_FLOOD_PIN
+    return (HAL_GPIO_ReadPin(COOLANT_FLOOD_PORT), COOLANT_FLOOD_BIT) == GPIO_PIN_RESET);
+#else
+    return (HAL_GPIO_ReadPin(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT) == GPIO_PIN_SET);
+#endif
+}
+
+void stm32_set_flood_state(bool state) {
+#ifdef INVERT_COOLANT_FLOOD_PIN
+    HAL_GPIO_WritePin(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT, state ? GPIO_PIN_RESET : GPIO_PIN_SET);
+#else
+    HAL_GPIO_WritePin(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+#endif
+}
+
+uint8_t stm32_get_mist_state() {
+#ifdef INVERT_COOLANT_FLOOD_PIN
+    return (HAL_GPIO_ReadPin(COOLANT_MIST_PORT), COOLANT_MIST_BIT) == GPIO_PIN_RESET);
+#else
+    return (HAL_GPIO_ReadPin(COOLANT_MIST_PORT, COOLANT_MIST_BIT) == GPIO_PIN_SET);
+#endif
+}
+
+void stm32_set_mist_state(bool state) {
+#ifdef INVERT_COOLANT_MIST_PIN
+    HAL_GPIO_WritePin(COOLANT_MIST_PORT, COOLANT_MIST_BIT, state ? GPIO_PIN_RESET : GPIO_PIN_SET);
+#else
+    HAL_GPIO_WritePin(COOLANT_MIST_PORT, COOLANT_MIST_BIT, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+#endif
+}
+
+void stm32_steppers_pulse_end(PORTPINDEF step_mask) {
+    if ((TIM3->SR & TIM_SR_UIF) != 0) { // check interrupt source
+        TIM3->SR &= ~TIM_SR_UIF;         // clear UIF flag
+        TIM3->CNT = 0;
+        NVIC_DisableIRQ(TIM3_IRQn);
+        STEP_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | (step_mask & STEP_MASK);
+    }
+}
+
+bool stm32_steppers_pulse_start(bool busy, PORTPINDEF dir_bits, PORTPINDEF step_bits) {
+    if ((TIM2->SR & TIM_SR_UIF) != 0) {     // check interrupt source
+        TIM2->SR &= ~TIM_SR_UIF;             // clear UIF flag
+        TIM2->CNT = 0;
+    } else {
+        return false;
+    }
+
+    if (busy) { return false; } // The busy-flag is used to avoid reentering this interrupt
+
+    // Set the direction pins a couple of nanoseconds before we step the steppers
+    DIRECTION_PORT->ODR = (DIRECTION_PORT->ODR & ~DIRECTION_MASK) | (dir_bits & DIRECTION_MASK);
+    TIM3->SR &= ~TIM_SR_UIF;
+
+    // Then pulse the stepping pins
+#ifdef STEP_PULSE_DELAY
+    st.step_bits = (STEP_PORT->ODR & ~STEP_MASK) | st.step_outbits; // Store out_bits to prevent overwriting.
+#else  // Normal operation
+    // Output demanded state of step bits and current state of other port bits.
+    DIRECTION_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | (step_bits & STEP_MASK);
+#endif
+
+    // Enable step pulse reset timer so that The Stepper Port Reset Interrupt can reset the signal after
+    // exactly settings.pulse_microseconds microseconds, independent of the main Timer1 prescaler.
+    NVIC_EnableIRQ(TIM3_IRQn);
+
+    return true;
 }

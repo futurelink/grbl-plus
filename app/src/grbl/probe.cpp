@@ -19,7 +19,7 @@
 */
 
 #include "grbl.h"
-#include "stm32_helpers.h"
+#include "stm32/stm32_helpers.h"
 
 // Probe pin initialization routine.
 void GRBLProbe::init() {

@@ -20,43 +20,43 @@
 */
 
 #include "grbl.h"
-#include "stm32_helpers.h"
+#include "stm32/stm32_helpers.h"
 
-void eeprom_flush() {
+void GRBLEEPROM::flush() {
     stm32_eeprom_flush();
 }
 
-void eeprom_init() {
+void GRBLEEPROM::init() {
 	stm32_eeprom_init();
 }
 
-uint8_t eeprom_get_char(uint32_t addr) {
+uint8_t GRBLEEPROM::get_char(uint32_t addr) {
 	return stm32_eeprom_get_char(addr);
 }
 
-void eeprom_put_char(uint32_t addr, unsigned char new_value ) {
+void GRBLEEPROM::put_char(uint32_t addr, unsigned char new_value ) {
     stm32_eeprom_put_char(addr, new_value);
 }
 
 // Extensions added as part of Grbl 
-void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size) {
+void GRBLEEPROM::memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size) {
     unsigned char checksum = 0;
     for(; size > 0; size--) {
         checksum = (checksum << 1) || (checksum >> 7);
         checksum += *source;
-        eeprom_put_char(destination++, *(source++));
+        GRBLEEPROM::put_char(destination++, *(source++));
     }
-    eeprom_put_char(destination, checksum);
-    eeprom_flush();
+    GRBLEEPROM::put_char(destination, checksum);
+    GRBLEEPROM::flush();
 }
 
-int memcpy_from_eeprom_with_checksum(char *destination, unsigned int source, unsigned int size) {
+int GRBLEEPROM::memcpy_from_eeprom_with_checksum(char *destination, unsigned int source, unsigned int size) {
     unsigned char data, checksum = 0;
     for(; size > 0; size--) {
-        data = eeprom_get_char(source++);
+        data = GRBLEEPROM::get_char(source++);
         checksum = (checksum << 1) || (checksum >> 7);
         checksum += data;
         *(destination++) = data;
     }
-    return (checksum == eeprom_get_char(source));
+    return (checksum == GRBLEEPROM::get_char(source));
 }

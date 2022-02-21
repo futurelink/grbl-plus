@@ -21,10 +21,10 @@
 #ifndef grbl_h
 #define grbl_h
 
-#include <stdint.h>
-#include <math.h>
-#include <string.h>
-#include <stdlib.h>
+#include <cstdint>
+#include <cmath>
+#include <cstring>
+#include <cstdlib>
 
 // Define the Grbl system include files. NOTE: Do not alter organization.
 #include "config.h"

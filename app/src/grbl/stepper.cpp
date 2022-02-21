@@ -22,8 +22,7 @@
 
 #include "grbl.h"
 
-#include "stm32f1xx_hal_tim.h"
-#include "stm32_helpers.h"
+#include "stm32/stm32_helpers.h"
 
 const PORTPINDEF step_pin_mask[N_AXIS] = {
     1 << X_STEP_BIT,
@@ -73,12 +72,12 @@ void GRBLSteppers::prep_buffer() {
             // Check if we need to only recompute the velocity profile or load a new block.
             if (prep.recalculate_flag & PREP_FLAG_RECALCULATE) {
 
-#ifdef PARKING_ENABLE
+                #ifdef PARKING_ENABLE
                 if (prep.recalculate_flag & PREP_FLAG_PARKING) { prep.recalculate_flag &= ~(PREP_FLAG_RECALCULATE); }
-          else { prep.recalculate_flag = false; }
-#else
+                else { prep.recalculate_flag = false; }
+                #else
                 prep.recalculate_flag = false;
-#endif
+                #endif
             } else {
                 // Load the Bresenham stepping data for the block.
                 prep.st_block_index = next_block_index(prep.st_block_index);
@@ -89,16 +88,17 @@ void GRBLSteppers::prep_buffer() {
                 st_prep_block = &st_block_buffer[prep.st_block_index];
                 st_prep_block->direction_bits = pl_block->direction_bits;
                 uint8_t idx;
-#ifndef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+
+                #ifndef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
                 for (idx=0; idx<N_AXIS; idx++) { st_prep_block->steps[idx] = (pl_block->steps[idx] << 1); }
-          st_prep_block->step_event_count = (pl_block->step_event_count << 1);
-#else
+                st_prep_block->step_event_count = (pl_block->step_event_count << 1);
+                #else
                 // With AMASS enabled, simply bit-shift multiply all Bresenham data by the max AMASS
                 // level, such that we never divide beyond the original data anywhere in the algorithm.
                 // If the original data is divided, we can lose a step from integer roundoff.
                 for (idx=0; idx<N_AXIS; idx++) { st_prep_block->steps[idx] = pl_block->steps[idx] << MAX_AMASS_LEVEL; }
                 st_prep_block->step_event_count = pl_block->step_event_count << MAX_AMASS_LEVEL;
-#endif
+                #endif
 
                 // Initialize segment buffer data for generating the segments.
                 prep.steps_remaining = (float)pl_block->step_event_count;
@@ -115,7 +115,7 @@ void GRBLSteppers::prep_buffer() {
                     prep.current_speed = sqrtf(pl_block->entry_speed_sqr);
                 }
 
-#ifdef VARIABLE_SPINDLE
+                #ifdef VARIABLE_SPINDLE
                 // Setup laser mode variables. PWM rate adjusted motions will always complete a motion with the
                 // spindle off.
                 st_prep_block->is_pwm_rate_adjusted = false;
@@ -126,7 +126,7 @@ void GRBLSteppers::prep_buffer() {
                         st_prep_block->is_pwm_rate_adjusted = true;
                     }
                 }
-#endif
+                #endif
             }
 
             /* ---------------------------------------------------------------------------------
@@ -443,9 +443,11 @@ void GRBLSteppers::prep_buffer() {
                 // the segment queue, where realtime protocol will set new state upon receiving the
                 // cycle stop flag from the ISR. Prep_segment is blocked until then.
                 bit_true(grbl.sys.step_control,STEP_CONTROL_END_MOTION);
-#ifdef PARKING_ENABLE
+
+                #ifdef PARKING_ENABLE
                 if (!(prep.recalculate_flag & PREP_FLAG_PARKING)) { prep.recalculate_flag |= PREP_FLAG_HOLD_PARTIAL_BLOCK; }
-#endif
+                #endif
+
                 return; // Bail!
             } else { // End of planner block
                 // The planner block is complete. All steps are set to be executed in the segment buffer.
@@ -474,15 +476,15 @@ void GRBLSteppers::wake_up() {
     st.step_outbits = step_port_invert_mask;
 
     // Initialize step pulse timing from settings. Here to ensure updating after re-writing.
-#ifdef STEP_PULSE_DELAY
+    #ifdef STEP_PULSE_DELAY
     // Set total step pulse time after direction pin set. Ad hoc computation from oscilloscope.
     st.step_pulse_time = -(((settings.pulse_microseconds+STEP_PULSE_DELAY-2)*TICKS_PER_MICROSECOND) >> 3);
     // Set delay between direction pin write and step command.
     OCR0A = -(((settings.pulse_microseconds)*TICKS_PER_MICROSECOND) >> 3);
-#else // Normal operation
+    #else // Normal operation
     // Set step pulse time. Ad hoc computation from oscilloscope. Uses two's complement.
-    st.step_pulse_time = (grbl.settings.pulse_microseconds())*TICKS_PER_MICROSECOND;
-#endif
+    st.step_pulse_time = (grbl.settings.pulse_microseconds()) * TICKS_PER_MICROSECOND;
+    #endif
 
     // Enable Stepper Driver Interrupt
     TIM3->ARR = st.step_pulse_time - 1;
@@ -491,9 +493,9 @@ void GRBLSteppers::wake_up() {
     TIM2->ARR = st.exec_segment->cycles_per_tick - 1;
 
     /* Set the Autoreload value */
-#ifndef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    #ifndef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
     TIM2->PSC = st.exec_segment->prescaler;
-#endif
+    #endif
     TIM2->EGR = 1; // Immediate reload
     NVIC_EnableIRQ(TIM2_IRQn);
 }
@@ -581,7 +583,7 @@ uint8_t GRBLSteppers::next_block_index(uint8_t block_index) {
 
 #ifdef PARKING_ENABLE
 // Changes the run state of the step segment buffer to execute the special parking motion.
-void GRBLSteppers::st_parking_setup_buffer() {
+void GRBLSteppers::parking_setup_buffer() {
     // Store step execution data of partially completed block, if necessary.
     if (prep.recalculate_flag & PREP_FLAG_HOLD_PARTIAL_BLOCK) {
         prep.last_st_block_index = prep.st_block_index;
@@ -596,7 +598,7 @@ void GRBLSteppers::st_parking_setup_buffer() {
 }
 
 // Restores the step segment buffer to the normal run state after a parking motion.
-void GRBLSteppers::st_parking_restore_buffer() {
+void GRBLSteppers::parking_restore_buffer() {
     // Restore step execution data and flags of partially completed block, if necessary.
     if (prep.recalculate_flag & PREP_FLAG_HOLD_PARTIAL_BLOCK) {
         st_prep_block = &st_block_buffer[prep.last_st_block_index];
@@ -712,30 +714,10 @@ float GRBLSteppers::get_realtime_rate() const {
 // int8 variables and update position counters only when a segment completes. This can get complicated
 // with probing and homing cycles that require true real-time positions.
 void GRBLSteppers::tim2_handler() {
-    if ((TIM2->SR & TIM_SR_UIF) != 0) {     // check interrupt source
-        TIM2->SR &= ~TIM_SR_UIF;             // clear UIF flag
-        TIM2->CNT = 0;
-    } else {
+
+    if (!stm32_steppers_pulse_start(busy, st.dir_outbits, st.step_outbits)) {
         return;
     }
-
-    if (busy) { return; } // The busy-flag is used to avoid reentering this interrupt
-
-    // Set the direction pins a couple of nanoseconds before we step the steppers
-    DIRECTION_PORT->ODR = (DIRECTION_PORT->ODR & ~DIRECTION_MASK) | (st.dir_outbits & DIRECTION_MASK);
-    TIM3->SR &= ~TIM_SR_UIF;
-
-    // Then pulse the stepping pins
-#ifdef STEP_PULSE_DELAY
-    st.step_bits = (STEP_PORT->ODR & ~STEP_MASK) | st.step_outbits; // Store out_bits to prevent overwriting.
-#else  // Normal operation
-    // Output demanded state of step bits and current state of other port bits.
-    DIRECTION_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | (st.step_outbits & STEP_MASK);
-#endif
-
-    // Enable step pulse reset timer so that The Stepper Port Reset Interrupt can reset the signal after
-    // exactly settings.pulse_microseconds microseconds, independent of the main Timer1 prescaler.
-    NVIC_EnableIRQ(TIM3_IRQn);
 
     busy = true;
 
@@ -749,9 +731,9 @@ void GRBLSteppers::tim2_handler() {
             // Initialize step segment timing per step and load number of steps to execute.
             TIM2->ARR = st.exec_segment->cycles_per_tick - 1;
             /* Set the Autoreload value */
-#ifndef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+            #ifndef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
             TIM2->PSC = st.exec_segment->prescaler;
-#endif
+            #endif
             st.step_count = st.exec_segment->n_step; // NOTE: Can sometimes be zero when moving slow.
 
             // If the new segment starts a new planner block, initialize stepper variables and counters.
@@ -766,26 +748,26 @@ void GRBLSteppers::tim2_handler() {
 
             st.dir_outbits = st.exec_block->direction_bits ^ dir_port_invert_mask;
 
-#ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+            #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
             // With AMASS enabled, adjust Bresenham axis increment counters according to AMASS level.
             st.steps[X_AXIS] = st.exec_block->steps[X_AXIS] >> st.exec_segment->amass_level;
             st.steps[Y_AXIS] = st.exec_block->steps[Y_AXIS] >> st.exec_segment->amass_level;
             st.steps[Z_AXIS] = st.exec_block->steps[Z_AXIS] >> st.exec_segment->amass_level;
-#endif
+            #endif
 
-#ifdef VARIABLE_SPINDLE
+            #ifdef VARIABLE_SPINDLE
             // Set real-time spindle output as segment is loaded, just prior to the first step.
             grbl.spindle.set_speed(st.exec_segment->spindle_pwm);
-#endif
+            #endif
 
         } else {
             // Segment buffer empty. Shutdown.
             go_idle();
 
             // Ensure pwm is set properly upon completion of rate-controlled motion.
-#ifdef VARIABLE_SPINDLE
+            #ifdef VARIABLE_SPINDLE
             if (st.exec_block->is_pwm_rate_adjusted) { grbl.spindle.set_speed(SPINDLE_PWM_OFF_VALUE); }
-#endif
+            #endif
 
             grbl.system.set_exec_state_flag(EXEC_CYCLE_STOP); // Flag main program for cycle end
             return; // Nothing to do but exit.
@@ -799,42 +781,42 @@ void GRBLSteppers::tim2_handler() {
     st.step_outbits = 0;
 
     // Execute step displacement profile by Bresenham line algorithm
-#ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
     st.counter_x += st.steps[X_AXIS];
-#else
+    #else
     st.counter_x += st.exec_block->steps[X_AXIS];
-#endif
+    #endif
 
     if (st.counter_x > st.exec_block->step_event_count) {
-        st.step_outbits |= (1<<X_STEP_BIT);
+        st.step_outbits |= (1 << X_STEP_BIT);
         st.counter_x -= st.exec_block->step_event_count;
-        if (st.exec_block->direction_bits & (1<<X_DIRECTION_BIT)) { grbl.sys_position[X_AXIS]--; }
+        if (st.exec_block->direction_bits & (1 << X_DIRECTION_BIT)) { grbl.sys_position[X_AXIS]--; }
         else { grbl.sys_position[X_AXIS]++; }
     }
 
-#ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
     st.counter_y += st.steps[Y_AXIS];
-#else
+    #else
     st.counter_y += st.exec_block->steps[Y_AXIS];
-#endif
+    #endif
 
     if (st.counter_y > st.exec_block->step_event_count) {
-        st.step_outbits |= (1<<Y_STEP_BIT);
+        st.step_outbits |= (1 << Y_STEP_BIT);
         st.counter_y -= st.exec_block->step_event_count;
-        if (st.exec_block->direction_bits & (1<<Y_DIRECTION_BIT)) { grbl.sys_position[Y_AXIS]--; }
+        if (st.exec_block->direction_bits & (1 << Y_DIRECTION_BIT)) { grbl.sys_position[Y_AXIS]--; }
         else { grbl.sys_position[Y_AXIS]++; }
     }
 
-#ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
     st.counter_z += st.steps[Z_AXIS];
-#else
+    #else
     st.counter_z += st.exec_block->steps[Z_AXIS];
-#endif
+    #endif
 
     if (st.counter_z > st.exec_block->step_event_count) {
-        st.step_outbits |= (1<<Z_STEP_BIT);
+        st.step_outbits |= (1 << Z_STEP_BIT);
         st.counter_z -= st.exec_block->step_event_count;
-        if (st.exec_block->direction_bits & (1<<Z_DIRECTION_BIT)) { grbl.sys_position[Z_AXIS]--; }
+        if (st.exec_block->direction_bits & (1 << Z_DIRECTION_BIT)) { grbl.sys_position[Z_AXIS]--; }
         else { grbl.sys_position[Z_AXIS]++; }
     }
 
@@ -867,21 +849,16 @@ void GRBLSteppers::tim2_handler() {
 // a step. This ISR resets the motor port after a short period (settings.pulse_microseconds)
 // completing one step cycle.
 void GRBLSteppers::tim3_handler() const {
-    if ((TIM3->SR & TIM_SR_UIF) != 0) { // check interrupt source
-        TIM3->SR &= ~TIM_SR_UIF;         // clear UIF flag
-        TIM3->CNT = 0;
-        NVIC_DisableIRQ(TIM3_IRQn);
-        STEP_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | (step_port_invert_mask & STEP_MASK);
-    }
+    stm32_steppers_pulse_end(step_port_invert_mask);
 }
 
 #ifdef STEP_PULSE_DELAY
 // This interrupt is used only when STEP_PULSE_DELAY is enabled. Here, the step pulse is
-    // initiated after the STEP_PULSE_DELAY time period has elapsed. The ISR TIMER2_OVF interrupt
-    // will then trigger after the appropriate settings.pulse_microseconds, as in normal operation.
-    // The new timing between direction, step pulse, and step complete events are setup in the
-    // st_wake_up() routine.
-    ISR(TIMER0_COMPA_vect) {
-        STEP_PORT = st.step_bits; // Begin step pulse.
-    }
+// initiated after the STEP_PULSE_DELAY time period has elapsed. The ISR TIMER2_OVF interrupt
+// will then trigger after the appropriate settings.pulse_microseconds, as in normal operation.
+// The new timing between direction, step pulse, and step complete events are setup in the
+// st_wake_up() routine.
+ISR(TIMER0_COMPA_vect) {
+    STEP_PORT = st.step_bits; // Begin step pulse.
+}
 #endif

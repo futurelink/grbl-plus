@@ -23,75 +23,61 @@
 #include "grbl.h"
 
 #include "core_cm3.h"
-#include "usb/usbd_cdc_if.h"
-
-#define RX_RING_BUFFER (RX_BUFFER_SIZE)
-#define TX_RING_BUFFER (TX_BUFFER_SIZE)
-
-uint8_t serial_rx_buffer[RX_RING_BUFFER];
-uint8_t serial_rx_buffer_head = 0;
-volatile uint8_t serial_rx_buffer_tail = 0;
-
-uint8_t serial_tx_buffer[TX_RING_BUFFER];
-uint8_t serial_tx_buffer_head = 0;
-volatile uint8_t serial_tx_buffer_tail = 0;
+#include "stm32/usb/usbd_cdc_if.h"
 
 // Returns the number of bytes available in the RX serial buffer.
-uint8_t GRBLSerial::get_rx_buffer_available()
-{
-  uint8_t rtail = serial_rx_buffer_tail; // Copy to limit multiple calls to volatile
-  if (serial_rx_buffer_head >= rtail) { return(RX_BUFFER_SIZE - (serial_rx_buffer_head-rtail)); }
-  return((rtail-serial_rx_buffer_head-1));
+uint8_t GRBLSerial::get_rx_buffer_available() {
+    uint8_t rtail = rx_buffer_tail; // Copy to limit multiple calls to volatile
+    if (rx_buffer_head >= rtail) { return(RX_BUFFER_SIZE - (rx_buffer_head - rtail)); }
+    return((rtail - rx_buffer_head - 1));
 }
 
 // Returns the number of bytes used in the RX serial buffer.
 // NOTE: Deprecated. Not used unless classic status reports are enabled in config.h.
-uint8_t GRBLSerial::get_rx_buffer_count()
-{
-  uint8_t rtail = serial_rx_buffer_tail; // Copy to limit multiple calls to volatile
-  if (serial_rx_buffer_head >= rtail) { return(serial_rx_buffer_head-rtail); }
-  return (RX_BUFFER_SIZE - (rtail-serial_rx_buffer_head));
+uint8_t GRBLSerial::get_rx_buffer_count() {
+    uint8_t rtail = rx_buffer_tail; // Copy to limit multiple calls to volatile
+    if (rx_buffer_head >= rtail) { return(rx_buffer_head - rtail); }
+    return (RX_BUFFER_SIZE - (rtail - rx_buffer_head));
 }
 
 // Returns the number of bytes used in the TX serial buffer.
 // NOTE: Not used except for debugging and ensuring no TX bottlenecks.
-uint8_t GRBLSerial::get_tx_buffer_count()
-{
-  uint8_t ttail = serial_tx_buffer_tail; // Copy to limit multiple calls to volatile
-  if (serial_tx_buffer_head >= ttail) { return(serial_tx_buffer_head-ttail); }
-  return (TX_RING_BUFFER - (ttail-serial_tx_buffer_head));
+uint8_t GRBLSerial::get_tx_buffer_count() {
+    uint8_t ttail = tx_buffer_tail; // Copy to limit multiple calls to volatile
+    if (tx_buffer_head >= ttail) { return(tx_buffer_head - ttail); }
+    return (TX_RING_BUFFER - (ttail - tx_buffer_head));
 }
 
 // Writes one byte to the TX serial buffer. Called by main program.
 void GRBLSerial::write(uint8_t data) {
     // Calculate next head
-    uint8_t next_head = serial_tx_buffer_head + 1;
+    uint8_t next_head = tx_buffer_head + 1;
     if (next_head == TX_RING_BUFFER) { next_head = 0; }
 
     // Wait until there is space in the buffer
-    while (next_head == serial_tx_buffer_tail) {
+    while (next_head == tx_buffer_tail) {
         // TODO: Restructure st_prep_buffer() calls to be executed here during a long print.
         if (grbl.sys_rt_exec_state & EXEC_RESET) { return; } // Only check for abort to avoid an endless loop.
     }
 
     // Store data and advance head
-    serial_tx_buffer[serial_tx_buffer_head] = data;
-    serial_tx_buffer_head = next_head;
+    tx_buffer[tx_buffer_head] = data;
+    tx_buffer_head = next_head;
 }
 
 // Circular buffer should be sent as linear
-void GRBLSerial::serial_tx() {
-    if (serial_tx_buffer_head > serial_tx_buffer_tail) {
-        if (CDC_Transmit_FS(serial_tx_buffer + serial_tx_buffer_tail, serial_tx_buffer_head - serial_tx_buffer_tail) == USBD_OK) {
-            serial_tx_buffer_tail = serial_tx_buffer_head;
+void GRBLSerial::transmit() {
+    if (tx_buffer_head > tx_buffer_tail) {
+        if (CDC_Transmit_FS(tx_buffer + tx_buffer_tail, tx_buffer_head - tx_buffer_tail) == USBD_OK) {
+            tx_buffer_tail = tx_buffer_head;
         }
-    } else if (serial_tx_buffer_head < serial_tx_buffer_tail) {
+    } else if (tx_buffer_head < tx_buffer_tail) {
         // Send first part from data tail to end of the buffer
-        if (CDC_Transmit_FS(serial_tx_buffer + serial_tx_buffer_tail, TX_RING_BUFFER - serial_tx_buffer_tail) == USBD_OK) {
-            serial_tx_buffer_tail = 0;
+        if (CDC_Transmit_FS(tx_buffer + tx_buffer_tail, TX_RING_BUFFER - tx_buffer_tail) == USBD_OK) {
+            tx_buffer_tail = 0;
             // Send second part from buffer start to data head
-            if (CDC_Transmit_FS(serial_tx_buffer, serial_tx_buffer_head) == USBD_OK) {
-                serial_tx_buffer_tail = serial_tx_buffer_head;
+            if (CDC_Transmit_FS(tx_buffer, tx_buffer_head) == USBD_OK) {
+                tx_buffer_tail = tx_buffer_head;
             }
         }
     }
@@ -99,28 +85,26 @@ void GRBLSerial::serial_tx() {
 
 // Fetches the first byte in the serial read buffer. Called by main program.
 uint8_t GRBLSerial::read() {
-    uint8_t tail = serial_rx_buffer_tail; // Temporary serial_rx_buffer_tail (to optimize for volatile)
-    if (serial_rx_buffer_head == tail) {
+    uint8_t tail = rx_buffer_tail; // Temporary rx_buffer_tail (to optimize for volatile)
+    if (rx_buffer_head == tail) {
         return SERIAL_NO_DATA;
     } else {
-        uint8_t data = serial_rx_buffer[tail];
+        uint8_t data = rx_buffer[tail];
 
         tail++;
         if (tail == RX_RING_BUFFER) { tail = 0; }
-        serial_rx_buffer_tail = tail;
+        rx_buffer_tail = tail;
 
         return data;
     }
 }
 
 void OnUsbDataRx(uint8_t* dataIn, uint8_t length) {
-	//lcd_write_char(*dataIn);
 	uint8_t next_head;
     uint8_t data;
 
 	// Write data to buffer unless it is full.
-	while (length != 0)
-	{
+	while (length != 0) {
         data = *dataIn ++;
 
         // Pick off realtime command characters directly from the serial stream. These characters are
@@ -157,19 +141,19 @@ void OnUsbDataRx(uint8_t* dataIn, uint8_t length) {
                 case CMD_SPINDLE_OVR_STOP: grbl.system.set_exec_accessory_override_flag(EXEC_SPINDLE_OVR_STOP); break;
                 case CMD_COOLANT_FLOOD_OVR_TOGGLE: grbl.system.set_exec_accessory_override_flag(EXEC_COOLANT_FLOOD_OVR_TOGGLE); break;
                 #ifdef ENABLE_M7
-                    case CMD_COOLANT_MIST_OVR_TOGGLE: system_set_exec_accessory_override_flag(EXEC_COOLANT_MIST_OVR_TOGGLE); break;
+                    case CMD_COOLANT_MIST_OVR_TOGGLE: grbl.system.set_exec_accessory_override_flag(EXEC_COOLANT_MIST_OVR_TOGGLE); break;
                 #endif
                 default: break;
                 }
                 // Throw away any unfound extended-ASCII character by not passing it to the serial buffer.
             } else { // Write character to buffer
-                next_head = serial_rx_buffer_head + 1;
+                next_head = grbl.serial.rx_buffer_head + 1;
                 if (next_head == RX_RING_BUFFER) { next_head = 0; }
 
                 // Write data to buffer unless it is full.
-                if (next_head != serial_rx_buffer_tail) {
-                    serial_rx_buffer[serial_rx_buffer_head] = data;
-                    serial_rx_buffer_head = next_head;
+                if (next_head != grbl.serial.rx_buffer_tail) {
+                    grbl.serial.rx_buffer[grbl.serial.rx_buffer_head] = data;
+                    grbl.serial.rx_buffer_head = next_head;
                 }
             }
         }
@@ -178,5 +162,5 @@ void OnUsbDataRx(uint8_t* dataIn, uint8_t length) {
 }
 
 void GRBLSerial::reset_read_buffer() {
-    serial_rx_buffer_tail = serial_rx_buffer_head;
+    rx_buffer_tail = rx_buffer_head;
 }

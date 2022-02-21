@@ -21,7 +21,6 @@
 */
 
 #include "grbl.h"
-#include "stm32f1xx_hal.h"
 
 // Homing axis search distance multiplier. Computed by this value times the cycle travel.
 #ifndef HOMING_AXIS_SEARCH_SCALAR
@@ -143,7 +142,7 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
     float target[N_AXIS];
     float max_travel = 0.0f;
     uint8_t idx;
-    for (idx=0; idx<N_AXIS; idx++) {
+    for (idx = 0; idx < N_AXIS; idx++) {
         // Initialize step pin masks
         step_pin[idx] = step_pin_mask[idx];
         #ifdef COREXY
@@ -168,21 +167,21 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
         // Initialize and declare variables needed for homing routine.
         axislock = 0;
         n_active_axis = 0;
-        for (idx=0; idx<N_AXIS; idx++) {
+        for (idx=0; idx < N_AXIS; idx++) {
             // Set target location for active axes and setup computation for homing rate.
             if (bit_istrue(cycle_mask,bit(idx))) {
                 n_active_axis++;
                 #ifdef COREXY
                 if (idx == X_AXIS) {
-            int32_t axis_position = system_convert_corexy_to_y_axis_steps(sys_position);
-            sys_position[A_MOTOR] = axis_position;
-            sys_position[B_MOTOR] = -axis_position;
-          } else if (idx == Y_AXIS) {
-            int32_t axis_position = system_convert_corexy_to_x_axis_steps(sys_position);
-            sys_position[A_MOTOR] = sys_position[B_MOTOR] = axis_position;
-          } else {
-            sys_position[Z_AXIS] = 0;
-          }
+                    int32_t axis_position = grbl.system.convert_corexy_to_y_axis_steps(sys_position);
+                    grbl.sys_position[A_MOTOR] = axis_position;
+                    grbl.sys_position[B_MOTOR] = -axis_position;
+                } else if (idx == Y_AXIS) {
+                    int32_t axis_position = grbl.system.convert_corexy_to_x_axis_steps(grbl.sys_position);
+                    grbl.sys_position[A_MOTOR] = grbl.sys_position[B_MOTOR] = axis_position;
+                } else {
+                    grbl.sys_position[Z_AXIS] = 0;
+                }
                 #else
                 grbl.sys_position[idx] = 0;
                 #endif
@@ -215,12 +214,12 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
             if (approach) {
                 // Check limit state. Lock out cycle axes when they change.
                 limit_state = get_state();
-                for (idx=0; idx<N_AXIS; idx++) {
+                for (idx=0; idx < N_AXIS; idx++) {
                     if (axislock & step_pin[idx]) {
                         if (limit_state & (1 << idx)) {
                             #ifdef COREXY
-                            if (idx==Z_AXIS) { axislock &= ~(step_pin[Z_AXIS]); }
-                else { axislock &= ~(step_pin[A_MOTOR]|step_pin[B_MOTOR]); }
+                            if (idx == Z_AXIS) { axislock &= ~(step_pin[Z_AXIS]); }
+                            else { axislock &= ~(step_pin[A_MOTOR]|step_pin[B_MOTOR]); }
                             #else
                             axislock &= ~(step_pin[idx]);
                             #endif
@@ -294,16 +293,16 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
 
             #ifdef COREXY
             if (idx==X_AXIS) {
-          int32_t off_axis_position = system_convert_corexy_to_y_axis_steps(sys_position);
-          sys_position[A_MOTOR] = set_axis_position + off_axis_position;
-          sys_position[B_MOTOR] = set_axis_position - off_axis_position;
-        } else if (idx==Y_AXIS) {
-          int32_t off_axis_position = system_convert_corexy_to_x_axis_steps(sys_position);
-          sys_position[A_MOTOR] = off_axis_position + set_axis_position;
-          sys_position[B_MOTOR] = off_axis_position - set_axis_position;
-        } else {
-          sys_position[idx] = set_axis_position;
-        }
+                int32_t off_axis_position = grbl.system.convert_corexy_to_y_axis_steps(grbl.sys_position);
+                grbl.sys_position[A_MOTOR] = set_axis_position + off_axis_position;
+                grbl.sys_position[B_MOTOR] = set_axis_position - off_axis_position;
+            } else if (idx==Y_AXIS) {
+                int32_t off_axis_position = system_convert_corexy_to_x_axis_steps(grbl.sys_position);
+                grbl.sys_position[A_MOTOR] = off_axis_position + set_axis_position;
+                grbl.sys_position[B_MOTOR] = off_axis_position - set_axis_position;
+            } else {
+                grbl.sys_position[idx] = set_axis_position;
+            }
             #else
             grbl.sys_position[idx] = set_axis_position;
             #endif

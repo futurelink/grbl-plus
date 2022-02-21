@@ -20,7 +20,7 @@
 */
 
 #include "grbl.h"
-#include "stm32_helpers.h"
+#include "stm32/stm32_helpers.h"
 
 void GRBLSystem::init() {
     stm32_system_init();

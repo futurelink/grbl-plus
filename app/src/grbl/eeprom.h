@@ -20,10 +20,15 @@
 
 #ifndef eeprom_h
 #define eeprom_h
-void eeprom_init();
-uint8_t eeprom_get_char(uint32_t addr);
-void eeprom_put_char(uint32_t addr, uint8_t new_value);
-void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size);
-int memcpy_from_eeprom_with_checksum(char *destination, unsigned int source, unsigned int size);
+
+class GRBLEEPROM {
+public:
+    static void init();
+    static void flush();
+    static uint8_t get_char(uint32_t addr);
+    static void put_char(uint32_t addr, uint8_t new_value);
+    static void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size);
+    static int memcpy_from_eeprom_with_checksum(char *destination, unsigned int source, unsigned int size);
+};
 
 #endif

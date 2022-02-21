@@ -5,7 +5,7 @@
  extern "C" {
 #endif
 
-#include "usb/core/usbd_cdc.h"
+#include "stm32/usb/core/usbd_cdc.h"
 
 #define APP_RX_DATA_SIZE  1000
 #define APP_TX_DATA_SIZE  1000

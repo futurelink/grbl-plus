@@ -22,18 +22,29 @@
 #ifndef serial_h
 #define serial_h
 
-#define SERIAL_NO_DATA 0xff
-#define RX_BUFFER_SIZE 254
-#define TX_BUFFER_SIZE 128    // Do not try 256 it will not work for STM32.
+#define SERIAL_NO_DATA  0xff
+#define RX_BUFFER_SIZE  254
+#define TX_BUFFER_SIZE  128    // Do not try 256 it will not work for STM32.
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#define RX_RING_BUFFER (RX_BUFFER_SIZE)
+#define TX_RING_BUFFER (TX_BUFFER_SIZE)
+
 void OnUsbDataRx(uint8_t* dataIn, uint8_t length);
 
 class GRBLSerial {
 public:
+    uint8_t rx_buffer[RX_RING_BUFFER];
+    uint8_t rx_buffer_head = 0;
+    volatile uint8_t rx_buffer_tail = 0;
+
+    uint8_t tx_buffer[TX_RING_BUFFER];
+    uint8_t tx_buffer_head = 0;
+    volatile uint8_t tx_buffer_tail = 0;
+
     // Writes one byte to the TX serial buffer. Called by main program.
     void write(uint8_t data);
 
@@ -54,7 +65,7 @@ public:
     // NOTE: Not used except for debugging and ensuring no TX bottlenecks.
     uint8_t get_tx_buffer_count();
 
-    void serial_tx();
+    void transmit();
 };
 
 #ifdef __cplusplus

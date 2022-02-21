@@ -30,6 +30,8 @@ void stm32_stepper_init();
 
 void stm32_limits_init();
 
+void stm32_limits_enable();
+
 void stm32_limits_disable();
 
 void stm32_limits_clear();
@@ -45,5 +47,18 @@ void stm32_eeprom_put_char(uint32_t addr, uint8_t value);
 #ifdef __cplusplus
 }
 #endif
+
+
+uint8_t stm32_get_flood_state();
+
+void stm32_set_flood_state(bool state);
+
+uint8_t stm32_get_mist_state();
+
+void stm32_set_mist_state(bool state);
+
+bool stm32_steppers_pulse_start(bool busy, PORTPINDEF dir_bits, PORTPINDEF step_bits);
+
+void stm32_steppers_pulse_end(PORTPINDEF step_mask);
 
 #endif

@@ -4,6 +4,7 @@
 
   Copyright (c) 2011-2016 Sungeun K. Jeon for Gnea Research LLC
   Copyright (c) 2009-2011 Simen Svale Skogsrud
+  Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -21,8 +22,6 @@
 
 #include "grbl.h"
 
-//#define M_PI 3.1415926
-
 // Execute linear motion in absolute millimeter coordinates. Feed rate given in millimeters/second
 // unless invert_feed_rate is true. Then the feed_rate means that the motion should be completed in
 // (1 minute)/feed_rate time.
@@ -30,42 +29,41 @@
 // segments, must pass through this routine before being passed to the planner. The seperation of
 // mc_line and plan_buffer_line is done primarily to place non-planner-type functions from being
 // in the planner and to let backlash compensation or canned cycle integration simple and direct.
-void GRBLMotion::line(float *target, plan_line_data_t *pl_data)
-{
-  // If enabled, check for soft limit violations. Placed here all line motions are picked up
-  // from everywhere in Grbl.
-  if (bit_istrue(grbl.settings.flags(), BITFLAG_SOFT_LIMIT_ENABLE)) {
-    // NOTE: Block jog state. Jogging is a special case and soft limits are handled independently.
-    if (grbl.sys.state != STATE_JOG) { grbl.limits.soft_check(target); }
-  }
+void GRBLMotion::line(float *target, plan_line_data_t *pl_data) {
+    // If enabled, check for soft limit violations. Placed here all line motions are picked up
+    // from everywhere in Grbl.
+    if (bit_istrue(grbl.settings.flags(), BITFLAG_SOFT_LIMIT_ENABLE)) {
+        // NOTE: Block jog state. Jogging is a special case and soft limits are handled independently.
+        if (grbl.sys.state != STATE_JOG) { grbl.limits.soft_check(target); }
+    }
 
-  // If in check gcode mode, prevent motion by blocking planner. Soft limits still work.
-  if (grbl.sys.state == STATE_CHECK_MODE) { return; }
+    // If in check gcode mode, prevent motion by blocking planner. Soft limits still work.
+    if (grbl.sys.state == STATE_CHECK_MODE) { return; }
 
-  // NOTE: Backlash compensation may be installed here. It will need direction info to track when
-  // to insert a backlash line motion(s) before the intended line motion and will require its own
-  // plan_check_full_buffer() and check for system abort loop. Also for position reporting
-  // backlash steps will need to be also tracked, which will need to be kept at a system level.
-  // There are likely some other things that will need to be tracked as well. However, we feel
-  // that backlash compensation should NOT be handled by Grbl itself, because there are a myriad
-  // of ways to implement it and can be effective or ineffective for different CNC machines. This
-  // would be better handled by the interface as a post-processor task, where the original g-code
-  // is translated and inserts backlash motions that best suits the machine.
-  // NOTE: Perhaps as a middle-ground, all that needs to be sent is a flag or special command that
-  // indicates to Grbl what is a backlash compensation motion, so that Grbl executes the move but
-  // doesn't update the machine position values. Since the position values used by the g-code
-  // parser and planner are separate from the system machine positions, this is doable.
+    // NOTE: Backlash compensation may be installed here. It will need direction info to track when
+    // to insert a backlash line motion(s) before the intended line motion and will require its own
+    // plan_check_full_buffer() and check for system abort loop. Also for position reporting
+    // backlash steps will need to be also tracked, which will need to be kept at a system level.
+    // There are likely some other things that will need to be tracked as well. However, we feel
+    // that backlash compensation should NOT be handled by Grbl itself, because there are a myriad
+    // of ways to implement it and can be effective or ineffective for different CNC machines. This
+    // would be better handled by the interface as a post-processor task, where the original g-code
+    // is translated and inserts backlash motions that best suits the machine.
+    // NOTE: Perhaps as a middle-ground, all that needs to be sent is a flag or special command that
+    // indicates to Grbl what is a backlash compensation motion, so that Grbl executes the move but
+    // doesn't update the machine position values. Since the position values used by the g-code
+    // parser and planner are separate from the system machine positions, this is doable.
 
     // If the buffer is full: good! That means we are well ahead of the robot.
     // Remain in this loop until there is room in the buffer.
     do {
         GRBLProtocol::execute_realtime(); // Check for any run-time commands
         if (grbl.sys.abort) { return; } // Bail, if system abort.
-        if ( grbl.planner.check_full_buffer() ) { GRBLProtocol::auto_cycle_start(); } // Auto-cycle start when buffer is full.
+        if (grbl.planner.check_full_buffer()) { GRBLProtocol::auto_cycle_start(); } // Auto-cycle start when buffer is full.
         else { break; }
     } while (1);
 
-  // Plan and queue motion into planner buffer
+    // Plan and queue motion into planner buffer
 	if (grbl.planner.buffer_line(target, pl_data) == PLAN_EMPTY_BLOCK) {
 		if (bit_istrue(grbl.settings.flags(), BITFLAG_LASER_MODE)) {
 			// Correctly set spindle state, if there is a coincident position passed. Forces a buffer
@@ -86,109 +84,109 @@ void GRBLMotion::line(float *target, plan_line_data_t *pl_data)
 // of each segment is configured in settings.arc_tolerance, which is defined to be the maximum normal
 // distance from segment to the circle when the end points both lie on the circle.
 void GRBLMotion::arc(float *target, plan_line_data_t *pl_data, float *position, float *offset, float radius,
-  uint8_t axis_0, uint8_t axis_1, uint8_t axis_linear, uint8_t is_clockwise_arc)
-{
-  float center_axis0 = position[axis_0] + offset[axis_0];
-  float center_axis1 = position[axis_1] + offset[axis_1];
-  float r_axis0 = -offset[axis_0];  // Radius vector from center to current location
-  float r_axis1 = -offset[axis_1];
-  float rt_axis0 = target[axis_0] - center_axis0;
-  float rt_axis1 = target[axis_1] - center_axis1;
+    uint8_t axis_0, uint8_t axis_1, uint8_t axis_linear, uint8_t is_clockwise_arc) {
+    float center_axis0 = position[axis_0] + offset[axis_0];
+    float center_axis1 = position[axis_1] + offset[axis_1];
+    float r_axis0 = -offset[axis_0];  // Radius vector from center to current location
+    float r_axis1 = -offset[axis_1];
+    float rt_axis0 = target[axis_0] - center_axis0;
+    float rt_axis1 = target[axis_1] - center_axis1;
 
-  // CCW angle between position and target from circle center. Only one atan2() trig computation required.
-  float angular_travel = atan2f(r_axis0*rt_axis1-r_axis1*rt_axis0, r_axis0*rt_axis0+r_axis1*rt_axis1);
-  if (is_clockwise_arc) { // Correct atan2 output per direction
-    if (angular_travel >= -ARC_ANGULAR_TRAVEL_EPSILON) { angular_travel -= 2*M_PI; }
-  } else {
-    if (angular_travel <= ARC_ANGULAR_TRAVEL_EPSILON) { angular_travel += 2*M_PI; }
-  }
+    // CCW angle between position and target from circle center. Only one atan2() trig computation required.
+    float angular_travel = atan2f(r_axis0*rt_axis1-r_axis1*rt_axis0, r_axis0*rt_axis0+r_axis1*rt_axis1);
+    if (is_clockwise_arc) { // Correct atan2 output per direction
+        if (angular_travel >= -ARC_ANGULAR_TRAVEL_EPSILON) { angular_travel -= 2*M_PI; }
+    } else {
+        if (angular_travel <= ARC_ANGULAR_TRAVEL_EPSILON) { angular_travel += 2*M_PI; }
+    }
 
-  // NOTE: Segment end points are on the arc, which can lead to the arc diameter being smaller by up to
-  // (2x) settings.arc_tolerance. For 99% of users, this is just fine. If a different arc segment fit
-  // is desired, i.e. least-squares, midpoint on arc, just change the mm_per_arc_segment calculation.
-  // For the intended uses of Grbl, this value shouldn't exceed 2000 for the strictest of cases.
-  uint16_t segments = (uint16_t)floorf(fabsf(0.5f*angular_travel*radius) /
+    // NOTE: Segment end points are on the arc, which can lead to the arc diameter being smaller by up to
+    // (2x) settings.arc_tolerance. For 99% of users, this is just fine. If a different arc segment fit
+    // is desired, i.e. least-squares, midpoint on arc, just change the mm_per_arc_segment calculation.
+    // For the intended uses of Grbl, this value shouldn't exceed 2000 for the strictest of cases.
+    uint16_t segments = (uint16_t)floorf(fabsf(0.5f*angular_travel*radius) /
                           sqrtf(grbl.settings.arc_tolerance()*(2*radius - grbl.settings.arc_tolerance())) );
 
-  if (segments) {
-    // Multiply inverse feed_rate to compensate for the fact that this movement is approximated
-    // by a number of discrete segments. The inverse feed_rate should be correct for the sum of
-    // all segments.
-    if (pl_data->condition & PL_COND_FLAG_INVERSE_TIME) { 
-      pl_data->feed_rate *= segments; 
-      bit_false(pl_data->condition,PL_COND_FLAG_INVERSE_TIME); // Force as feed absolute mode over arc segments.
-    }
+    if (segments) {
+        // Multiply inverse feed_rate to compensate for the fact that this movement is approximated
+        // by a number of discrete segments. The inverse feed_rate should be correct for the sum of
+        // all segments.
+        if (pl_data->condition & PL_COND_FLAG_INVERSE_TIME) {
+            pl_data->feed_rate *= segments;
+            bit_false(pl_data->condition,PL_COND_FLAG_INVERSE_TIME); // Force as feed absolute mode over arc segments.
+        }
     
-    float theta_per_segment = angular_travel / segments;
-    float linear_per_segment = (target[axis_linear] - position[axis_linear]) / segments;
+        float theta_per_segment = angular_travel / segments;
+        float linear_per_segment = (target[axis_linear] - position[axis_linear]) / segments;
 
-    /* Vector rotation by transformation matrix: r is the original vector, r_T is the rotated vector,
-       and phi is the angle of rotation. Solution approach by Jens Geisler.
+        /* Vector rotation by transformation matrix: r is the original vector, r_T is the rotated vector,
+        and phi is the angle of rotation. Solution approach by Jens Geisler.
            r_T = [cos(phi) -sin(phi);
                   sin(phi)  cos(phi] * r ;
 
-       For arc generation, the center of the circle is the axis of rotation and the radius vector is
-       defined from the circle center to the initial position. Each line segment is formed by successive
-       vector rotations. Single precision values can accumulate error greater than tool precision in rare
-       cases. So, exact arc path correction is implemented. This approach avoids the problem of too many very
-       expensive trig operations [sin(),cos(),tan()] which can take 100-200 usec each to compute.
+        For arc generation, the center of the circle is the axis of rotation and the radius vector is
+        defined from the circle center to the initial position. Each line segment is formed by successive
+        vector rotations. Single precision values can accumulate error greater than tool precision in rare
+        cases. So, exact arc path correction is implemented. This approach avoids the problem of too many very
+        expensive trig operations [sin(),cos(),tan()] which can take 100-200 usec each to compute.
 
-       Small angle approximation may be used to reduce computation overhead further. A third-order approximation
-       (second order sin() has too much error) holds for most, if not, all CNC applications. Note that this
-       approximation will begin to accumulate a numerical drift error when theta_per_segment is greater than
-       ~0.25 rad(14 deg) AND the approximation is successively used without correction several dozen times. This
-       scenario is extremely unlikely, since segment lengths and theta_per_segment are automatically generated
-       and scaled by the arc tolerance setting. Only a very large arc tolerance setting, unrealistic for CNC
-       applications, would cause this numerical drift error. However, it is best to set N_ARC_CORRECTION from a
-       low of ~4 to a high of ~20 or so to avoid trig operations while keeping arc generation accurate.
+        Small angle approximation may be used to reduce computation overhead further. A third-order approximation
+        (second order sin() has too much error) holds for most, if not, all CNC applications. Note that this
+        approximation will begin to accumulate a numerical drift error when theta_per_segment is greater than
+        ~0.25 rad(14 deg) AND the approximation is successively used without correction several dozen times. This
+        scenario is extremely unlikely, since segment lengths and theta_per_segment are automatically generated
+        and scaled by the arc tolerance setting. Only a very large arc tolerance setting, unrealistic for CNC
+        applications, would cause this numerical drift error. However, it is best to set N_ARC_CORRECTION from a
+        low of ~4 to a high of ~20 or so to avoid trig operations while keeping arc generation accurate.
 
-       This approximation also allows mc_arc to immediately insert a line segment into the planner
-       without the initial overhead of computing cos() or sin(). By the time the arc needs to be applied
-       a correction, the planner should have caught up to the lag caused by the initial mc_arc overhead.
-       This is important when there are successive arc motions.
-    */
-    // Computes: cos_T = 1 - theta_per_segment^2/2, sin_T = theta_per_segment - theta_per_segment^3/6) in ~52usec
-    float cos_T = 2.0f - theta_per_segment*theta_per_segment;
-    float sin_T = theta_per_segment*0.16666667f*(cos_T + 4.0f);
-    cos_T *= 0.5;
+        This approximation also allows mc_arc to immediately insert a line segment into the planner
+        without the initial overhead of computing cos() or sin(). By the time the arc needs to be applied
+        a correction, the planner should have caught up to the lag caused by the initial mc_arc overhead.
+        This is important when there are successive arc motions.
+        */
+        // Computes: cos_T = 1 - theta_per_segment^2/2, sin_T = theta_per_segment - theta_per_segment^3/6) in ~52usec
+        float cos_T = 2.0f - theta_per_segment*theta_per_segment;
+        float sin_T = theta_per_segment*0.16666667f*(cos_T + 4.0f);
+        cos_T *= 0.5;
 
-    float sin_Ti;
-    float cos_Ti;
-    float r_axisi;
-    uint16_t i;
-    uint8_t count = 0;
+        float sin_Ti;
+        float cos_Ti;
+        float r_axisi;
+        uint16_t i;
+        uint8_t count = 0;
 
-    for (i = 1; i<segments; i++) { // Increment (segments-1).
+        for (i = 1; i<segments; i++) { // Increment (segments-1).
 
-      if (count < N_ARC_CORRECTION) {
-        // Apply vector rotation matrix. ~40 usec
-        r_axisi = r_axis0*sin_T + r_axis1*cos_T;
-        r_axis0 = r_axis0*cos_T - r_axis1*sin_T;
-        r_axis1 = r_axisi;
-        count++;
-      } else {
-        // Arc correction to radius vector. Computed only every N_ARC_CORRECTION increments. ~375 usec
-        // Compute exact location by applying transformation matrix from initial radius vector(=-offset).
-        cos_Ti = cosf(i*theta_per_segment);
-        sin_Ti = sinf(i*theta_per_segment);
-        r_axis0 = -offset[axis_0]*cos_Ti + offset[axis_1]*sin_Ti;
-        r_axis1 = -offset[axis_0]*sin_Ti - offset[axis_1]*cos_Ti;
-        count = 0;
-      }
+            if (count < N_ARC_CORRECTION) {
+                // Apply vector rotation matrix. ~40 usec
+                r_axisi = r_axis0*sin_T + r_axis1*cos_T;
+                r_axis0 = r_axis0*cos_T - r_axis1*sin_T;
+                r_axis1 = r_axisi;
+                count++;
+            } else {
+                // Arc correction to radius vector. Computed only every N_ARC_CORRECTION increments. ~375 usec
+                // Compute exact location by applying transformation matrix from initial radius vector(=-offset).
+                cos_Ti = cosf(i*theta_per_segment);
+                sin_Ti = sinf(i*theta_per_segment);
+                r_axis0 = -offset[axis_0]*cos_Ti + offset[axis_1]*sin_Ti;
+                r_axis1 = -offset[axis_0]*sin_Ti - offset[axis_1]*cos_Ti;
+                count = 0;
+            }
 
-      // Update arc_target location
-      position[axis_0] = center_axis0 + r_axis0;
-      position[axis_1] = center_axis1 + r_axis1;
-      position[axis_linear] += linear_per_segment;
+            // Update arc_target location
+            position[axis_0] = center_axis0 + r_axis0;
+            position[axis_1] = center_axis1 + r_axis1;
+            position[axis_linear] += linear_per_segment;
 
-      line(position, pl_data);
+            line(position, pl_data);
 
-      // Bail mid-circle on system abort. Runtime command check already performed by mc_line.
-      if (grbl.sys.abort) { return; }
+            // Bail mid-circle on system abort. Runtime command check already performed by mc_line.
+            if (grbl.sys.abort) { return; }
+        }
     }
-  }
-  // Ensure last segment arrives at target location.
-  line(target, pl_data);
+
+    // Ensure last segment arrives at target location.
+    line(target, pl_data);
 }
 
 
@@ -207,9 +205,9 @@ void GRBLMotion::homing_cycle(uint8_t cycle_mask) {
     // with machines with limits wired on both ends of travel to one limit pin.
     // TODO: Move the pin-specific LIMIT_PIN call to limits.c as a function.
     #ifdef LIMITS_TWO_SWITCHES_ON_AXES
-    if (limits_get_state()) {
-      mc_reset(); // Issue system reset and ensure spindle and coolant are shutdown.
-      system_set_exec_alarm(EXEC_ALARM_HARD_LIMIT);
+    if (grbl.limits.get_state()) {
+      grbl.motion.reset(); // Issue system reset and ensure spindle and coolant are shutdown.
+      grbl.system.set_exec_alarm(EXEC_ALARM_HARD_LIMIT);
       return;
     }
     #endif
@@ -219,7 +217,7 @@ void GRBLMotion::homing_cycle(uint8_t cycle_mask) {
     // -------------------------------------------------------------------------------------
     // Perform homing routine. NOTE: Special motion case. Only system reset works.
     #ifdef HOMING_SINGLE_AXIS_COMMANDS
-    if (cycle_mask) { limits_go_home(cycle_mask); } // Perform homing cycle based on mask.
+    if (cycle_mask) { grbl.limits.go_home(cycle_mask); } // Perform homing cycle based on mask.
     else
     #endif
     {
@@ -229,7 +227,7 @@ void GRBLMotion::homing_cycle(uint8_t cycle_mask) {
         grbl.limits.go_home(HOMING_CYCLE_1);  // Homing cycle 1
         #endif
         #ifdef HOMING_CYCLE_2
-        limits_go_home(HOMING_CYCLE_2);  // Homing cycle 2
+        grbl.limits.go_home(HOMING_CYCLE_2);  // Homing cycle 2
         #endif
     }
 
@@ -244,9 +242,7 @@ void GRBLMotion::homing_cycle(uint8_t cycle_mask) {
     grbl.planner.sync_position();
 
     // If hard limits feature enabled, re-enable hard limits pin change register after homing cycle.
-    __HAL_GPIO_EXTI_CLEAR_IT((1 << X_LIMIT_BIT) | (1 << Y_LIMIT_BIT) | (1 << Z_LIMIT_BIT));
-	NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
-	NVIC_EnableIRQ(EXTI15_10_IRQn);
+    stm32_limits_enable();
 }
 
 // Perform tool length probe cycle. Requires probe switch.
@@ -315,27 +311,27 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
 }
 
 #ifdef PARKING_ENABLE
-	void GRBLMotion::mc_parking_motion(float *parking_target, plan_line_data_t *pl_data)
+	void GRBLMotion::parking_motion(float *parking_target, plan_line_data_t *pl_data)
 	{
 		if (grbl.sys.abort) { return; } // Block during abort.
 
-		uint8_t plan_status = plan_buffer_line(parking_target, pl_data);
+		uint8_t plan_status = grbl.planner.buffer_line(parking_target, pl_data);
 
 		if (plan_status) {
 			bit_true(grbl.sys.step_control, STEP_CONTROL_EXECUTE_SYS_MOTION);
 			bit_false(grbl.sys.step_control, STEP_CONTROL_END_MOTION); // Allow parking motion to execute, if feed hold is active.
-			st_parking_setup_buffer(); // Setup step segment buffer for special parking motion case
-			st_prep_buffer();
-			st_wake_up();
+			grbl.steppers.parking_setup_buffer(); // Setup step segment buffer for special parking motion case
+            grbl.steppers.prep_buffer();
+            grbl.steppers.wake_up();
 			do {
-				protocol_exec_rt_system();
+				GRBLProtocol::exec_rt_system();
 				if (grbl.sys.abort) { return; }
 			} while (grbl.sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION);
-			st_parking_restore_buffer(); // Restore step segment buffer to normal run state.
+            grbl.steppers.parking_restore_buffer(); // Restore step segment buffer to normal run state.
 		}
 		else {
 			bit_false(grbl.sys.step_control, STEP_CONTROL_EXECUTE_SYS_MOTION);
-			protocol_exec_rt_system();
+            GRBLProtocol::exec_rt_system();
 		}
 
 	}
@@ -343,14 +339,15 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
 
 
 #ifdef ENABLE_PARKING_OVERRIDE_CONTROL
-void GRBLMotion::mc_override_ctrl_update(uint8_t override_state)
+void GRBLMotion::override_ctrl_update(uint8_t override_state)
 {
 	// Finish all queued commands before altering override control state
-	protocol_buffer_synchronize();
+	GRBLProtocol::buffer_synchronize();
 	if (grbl.sys.abort) { return; }
 	grbl.sys.override_ctrl = override_state;
 }
 #endif
+
 // Method to ready the system to reset by setting the realtime reset command and killing any
 // active processes in the system. This also checks if a system reset is issued while Grbl
 // is in a motion state. If so, kills the steppers and sets the system alarm to flag position

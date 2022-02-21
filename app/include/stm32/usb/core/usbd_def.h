@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include "usb/usbd_conf.h"
+#include "stm32/usb/usbd_conf.h"
 
 #ifndef NULL
 #define NULL                                            0U

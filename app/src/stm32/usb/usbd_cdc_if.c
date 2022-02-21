@@ -1,4 +1,4 @@
-#include "usb/usbd_cdc_if.h"
+#include "stm32/usb/usbd_cdc_if.h"
 
 // Serial baud rate
 #define BAUD_RATE 115200

@@ -18,8 +18,8 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "usb/core/usbd_ctlreq.h"
-#include "usb/core/usbd_ioreq.h"
+#include "stm32/usb/core/usbd_ctlreq.h"
+#include "stm32/usb/core/usbd_ioreq.h"
 
 
 /** @addtogroup STM32_USBD_STATE_DEVICE_LIBRARY

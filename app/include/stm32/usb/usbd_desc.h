@@ -27,7 +27,7 @@
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "usb/core/usbd_def.h"
+#include "stm32/usb/core/usbd_def.h"
 
 /* USER CODE BEGIN INCLUDE */
 

@@ -30,7 +30,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f1xx.h"
 #include "stm32f1xx_hal.h"
-#include "usb/core/usbd_def.h"
+#include "stm32/usb/core/usbd_def.h"
 
 /* USER CODE BEGIN INCLUDE */
 

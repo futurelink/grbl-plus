@@ -27,14 +27,14 @@ void GRBLSettings::store_startup_line(uint8_t n, char *line) {
     GRBLProtocol::buffer_synchronize(); // A startup line may contain a motion and be executing.
     #endif
     uint32_t addr = n*(LINE_BUFFER_SIZE+1)+EEPROM_ADDR_STARTUP_BLOCK;
-    memcpy_to_eeprom_with_checksum(addr,(char*)line, LINE_BUFFER_SIZE);
+    GRBLEEPROM::memcpy_to_eeprom_with_checksum(addr,(char*)line, LINE_BUFFER_SIZE);
 }
 
 // Method to store build info into EEPROM
 // NOTE: This function can only be called in IDLE state.
 void GRBLSettings::store_build_info(char *line) {
     // Build info can only be stored when state is IDLE.
-    memcpy_to_eeprom_with_checksum(EEPROM_ADDR_BUILD_INFO,(char*)line, LINE_BUFFER_SIZE);
+    GRBLEEPROM::memcpy_to_eeprom_with_checksum(EEPROM_ADDR_BUILD_INFO,(char*)line, LINE_BUFFER_SIZE);
 }
 
 // Method to store coord data parameters into EEPROM
@@ -43,14 +43,14 @@ void GRBLSettings::write_coord_data(uint8_t coord_select, float *coord_data) {
     GRBLProtocol::buffer_synchronize();
     #endif
     uint32_t addr = coord_select*(sizeof(float)*N_AXIS+1) + EEPROM_ADDR_PARAMETERS;
-    memcpy_to_eeprom_with_checksum(addr,(char*)coord_data, sizeof(float)*N_AXIS);
+    GRBLEEPROM::memcpy_to_eeprom_with_checksum(addr,(char*)coord_data, sizeof(float)*N_AXIS);
 }
 
 // Method to store Grbl global settings struct and version number into EEPROM
 // NOTE: This function can only be called in IDLE state.
 void GRBLSettings::write_global() {
-    eeprom_put_char(0, SETTINGS_VERSION);
-    memcpy_to_eeprom_with_checksum(EEPROM_ADDR_GLOBAL, (char*)&settings, sizeof(settings_t));
+    GRBLEEPROM::put_char(0, SETTINGS_VERSION);
+    GRBLEEPROM::memcpy_to_eeprom_with_checksum(EEPROM_ADDR_GLOBAL, (char*)&settings, sizeof(settings_t));
 }
 
 // Method to restore EEPROM-saved Grbl global settings back to defaults.
@@ -124,18 +124,18 @@ void GRBLSettings::restore(uint8_t restore_flag) {
 
     if (restore_flag & SETTINGS_RESTORE_STARTUP_LINES) {
         #if N_STARTUP_LINE > 0
-        eeprom_put_char(EEPROM_ADDR_STARTUP_BLOCK, 0);
-        eeprom_put_char(EEPROM_ADDR_STARTUP_BLOCK+1, 0); // Checksum
+        GRBLEEPROM::put_char(EEPROM_ADDR_STARTUP_BLOCK, 0);
+        GRBLEEPROM::put_char(EEPROM_ADDR_STARTUP_BLOCK+1, 0); // Checksum
         #endif
         #if N_STARTUP_LINE > 1
-        eeprom_put_char(EEPROM_ADDR_STARTUP_BLOCK+(LINE_BUFFER_SIZE+1), 0);
-        eeprom_put_char(EEPROM_ADDR_STARTUP_BLOCK+(LINE_BUFFER_SIZE+2), 0); // Checksum
+        GRBLEEPROM::put_char(EEPROM_ADDR_STARTUP_BLOCK+(LINE_BUFFER_SIZE+1), 0);
+        GRBLEEPROM::put_char(EEPROM_ADDR_STARTUP_BLOCK+(LINE_BUFFER_SIZE+2), 0); // Checksum
         #endif
     }
 
     if (restore_flag & SETTINGS_RESTORE_BUILD_INFO) {
-        eeprom_put_char(EEPROM_ADDR_BUILD_INFO , 0);
-        eeprom_put_char(EEPROM_ADDR_BUILD_INFO+1 , 0); // Checksum
+        GRBLEEPROM::put_char(EEPROM_ADDR_BUILD_INFO , 0);
+        GRBLEEPROM::put_char(EEPROM_ADDR_BUILD_INFO+1 , 0); // Checksum
     }
 }
 
@@ -143,7 +143,7 @@ void GRBLSettings::restore(uint8_t restore_flag) {
 // Reads startup line from EEPROM. Updated pointed line string data.
 uint8_t GRBLSettings::read_startup_line(uint8_t n, char *line) {
     uint32_t addr = n*(LINE_BUFFER_SIZE+1)+EEPROM_ADDR_STARTUP_BLOCK;
-    if (!(memcpy_from_eeprom_with_checksum((char*)line, addr, LINE_BUFFER_SIZE))) {
+    if (!(GRBLEEPROM::memcpy_from_eeprom_with_checksum((char*)line, addr, LINE_BUFFER_SIZE))) {
         // Reset line with default value
         line[0] = 0; // Empty line
         store_startup_line(n, line);
@@ -154,7 +154,7 @@ uint8_t GRBLSettings::read_startup_line(uint8_t n, char *line) {
 
 // Reads startup line from EEPROM. Updated pointed line string data.
 uint8_t GRBLSettings::read_build_info(char *line) {
-    if (!(memcpy_from_eeprom_with_checksum((char*)line, EEPROM_ADDR_BUILD_INFO, LINE_BUFFER_SIZE))) {
+    if (!(GRBLEEPROM::memcpy_from_eeprom_with_checksum((char*)line, EEPROM_ADDR_BUILD_INFO, LINE_BUFFER_SIZE))) {
         // Reset line with default value
         line[0] = 0; // Empty line
         store_build_info(line);
@@ -167,7 +167,7 @@ uint8_t GRBLSettings::read_build_info(char *line) {
 // Read selected coordinate data from EEPROM. Updates pointed coord_data value.
 uint8_t GRBLSettings::read_coord_data(uint8_t coord_select, float *coord_data) {
     uint32_t addr = coord_select*(sizeof(float)*N_AXIS+1) + EEPROM_ADDR_PARAMETERS;
-    if (!(memcpy_from_eeprom_with_checksum((char*)coord_data, addr, sizeof(float)*N_AXIS))) {
+    if (!(GRBLEEPROM::memcpy_from_eeprom_with_checksum((char*)coord_data, addr, sizeof(float)*N_AXIS))) {
         // Reset with default zero vector
 		coord_data[X_AXIS] = 0.0f;
 		coord_data[Y_AXIS] = 0.0f;
@@ -182,10 +182,10 @@ uint8_t GRBLSettings::read_coord_data(uint8_t coord_select, float *coord_data) {
 // Reads Grbl global settings struct from EEPROM.
 uint8_t GRBLSettings::read_global() {
     // Check version-byte of eeprom
-    uint8_t version = eeprom_get_char(0);
+    uint8_t version = GRBLEEPROM::get_char(0);
     if (version == SETTINGS_VERSION) {
         // Read settings-record and check checksum
-        if (!(memcpy_from_eeprom_with_checksum((char*)&settings, EEPROM_ADDR_GLOBAL, sizeof(settings_t)))) {
+        if (!(GRBLEEPROM::memcpy_from_eeprom_with_checksum((char*)&settings, EEPROM_ADDR_GLOBAL, sizeof(settings_t)))) {
             return (false);
         }
     } else {

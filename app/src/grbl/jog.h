@@ -3,6 +3,7 @@
   Part of Grbl
 
   Copyright (c) 2016 Sungeun K. Jeon for Gnea Research LLC
+  Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by

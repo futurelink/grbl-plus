@@ -1,71 +1,59 @@
-//
-// Created by depavlov on 17.02.2022.
-//
+/*
+  stm32_interrupts.h - hardware specific interrupt handlers
+  Part of Grbl
 
-#include "grbl.h"
-#include "system.h"
+  Copyright (c) 2012-2016 Sungeun K. Jeon for Gnea Research LLC
+  Copyright (c) 2009-2011 Simen Svale Skogsrud
+  Copyright (c) 2022 Denis Pavlov
+
+  Grbl is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  Grbl is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+#include "../grbl/grbl.h"
 #include "stm32f1xx_hal.h"
-#include "stm32f1xx_it.h"
+#include "stm32/stm32f1xx_it.h"
 
 void serial_tx();
 
 extern PCD_HandleTypeDef hpcd_USB_FS;
 
-/**
-  * @brief This function handles Non maskable interrupt.
-  */
 void NMI_Handler(void) {
     while (1) {}
 }
 
-/**
-  * @brief This function handles Hard fault interrupt.
-  */
 void HardFault_Handler(void) {
     while (1) {}
 }
 
-/**
-  * @brief This function handles Memory management fault.
-  */
 void MemManage_Handler(void) {
     while (1) {}
 }
 
-/**
-  * @brief This function handles Prefetch fault, memory access fault.
-  */
 void BusFault_Handler(void) {
     while (1) {}
 }
 
-/**
-  * @brief This function handles Undefined instruction or illegal state.
-  */
 void UsageFault_Handler(void) {
     while (1) {}
 }
 
-/**
-  * @brief This function handles System service call via SWI instruction.
-  */
 void SVC_Handler(void) {}
 
-/**
-  * @brief This function handles Debug monitor.
-  */
 void DebugMon_Handler(void) {}
 
-/**
-  * @brief This function handles Pendable request for system service.
-  */
-void PendSV_Handler(void) {
+void PendSV_Handler(void) {}
 
-}
-
-/**
-  * @brief This function handles System tick timer.
-  */
 void SysTick_Handler(void) {
     HAL_IncTick();
 
@@ -77,19 +65,13 @@ void SysTick_Handler(void) {
         grbl.cnt--;
     }
 
-    grbl.serial.serial_tx();    // Send
+    grbl.serial.transmit();    // Send
 }
 
-/**
-  * @brief This function handles USB high priority or CAN TX interrupts.
-  */
 void USB_HP_CAN1_TX_IRQHandler(void) {
     HAL_PCD_IRQHandler(&hpcd_USB_FS);
 }
 
-/**
-  * @brief This function handles USB low priority or CAN RX0 interrupts.
-  */
 void USB_LP_CAN1_RX0_IRQHandler(void) {
     HAL_PCD_IRQHandler(&hpcd_USB_FS);
 }

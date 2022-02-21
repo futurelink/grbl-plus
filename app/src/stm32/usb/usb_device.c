@@ -1,9 +1,9 @@
-#include "usb/core/usbd_core.h"
-#include "usb/core/usbd_cdc.h"
+#include "stm32/usb/core/usbd_core.h"
+#include "stm32/usb/core/usbd_cdc.h"
 
-#include "usb/usb_device.h"
-#include "usb/usbd_desc.h"
-#include "usb/usbd_cdc_if.h"
+#include "stm32/usb/usb_device.h"
+#include "stm32/usb/usbd_desc.h"
+#include "stm32/usb/usbd_cdc_if.h"
 
 USBD_HandleTypeDef hUsbDeviceFS;
 

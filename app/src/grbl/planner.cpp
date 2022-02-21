@@ -280,195 +280,198 @@ void GRBLPlanner::update_velocity_profile_parameters() {
    motions are still planned correctly, while the stepper module only points to the block buffer head
    to execute the special system motion. */
 uint8_t GRBLPlanner::buffer_line(float *target, plan_line_data_t *pl_data) {
-  // Prepare and initialize new block. Copy relevant pl_data for block execution.
-  plan_block_t *block = &block_buffer[block_buffer_head];
-  memset(block,0,sizeof(plan_block_t)); // Zero all block values.
-  block->condition = pl_data->condition;
-  #ifdef VARIABLE_SPINDLE
+    // Prepare and initialize new block. Copy relevant pl_data for block execution.
+    plan_block_t *block = &block_buffer[block_buffer_head];
+    memset(block,0,sizeof(plan_block_t)); // Zero all block values.
+    block->condition = pl_data->condition;
+    #ifdef VARIABLE_SPINDLE
     block->spindle_speed = pl_data->spindle_speed;
-  #endif
-  #ifdef USE_LINE_NUMBERS
+    #endif
+    #ifdef USE_LINE_NUMBERS
     block->line_number = pl_data->line_number;
-  #endif
+    #endif
 
-  // Compute and store initial move distance data.
-  int32_t target_steps[N_AXIS], position_steps[N_AXIS];
-  float unit_vec[N_AXIS], delta_mm;
-  uint8_t idx;
+    // Compute and store initial move distance data.
+    int32_t target_steps[N_AXIS], position_steps[N_AXIS];
+    float unit_vec[N_AXIS], delta_mm;
+    uint8_t idx;
 
-  // Copy position data based on type of motion being planned.
-  if (block->condition & PL_COND_FLAG_SYSTEM_MOTION) {
-#ifdef COREXY
-    position_steps[X_AXIS] = system_convert_corexy_to_x_axis_steps(sys_position);
-    position_steps[Y_AXIS] = system_convert_corexy_to_y_axis_steps(sys_position);
-    position_steps[Z_AXIS] = sys_position[Z_AXIS];
-#else
-    memcpy(position_steps, grbl.sys_position, sizeof(grbl.sys_position));
-#endif
-  }
-  else { memcpy(position_steps, pl.position, sizeof(pl.position)); }
+    // Copy position data based on type of motion being planned.
+    if (block->condition & PL_COND_FLAG_SYSTEM_MOTION) {
+        #ifdef COREXY
+        position_steps[X_AXIS] = grbl.system.convert_corexy_to_x_axis_steps(grbl.sys_position);
+        position_steps[Y_AXIS] = grbl.system.convert_corexy_to_y_axis_steps(grbl.sys_position);
+        position_steps[Z_AXIS] = grbl.sys_position[Z_AXIS];
+        #else
+        memcpy(position_steps, grbl.sys_position, sizeof(grbl.sys_position));
+        #endif
+    }
+    else { memcpy(position_steps, pl.position, sizeof(pl.position)); }
 
-  #ifdef COREXY
-    target_steps[A_MOTOR] = lround(target[A_MOTOR]*settings.steps_per_mm[A_MOTOR]);
-    target_steps[B_MOTOR] = lround(target[B_MOTOR]*settings.steps_per_mm[B_MOTOR]);
+    #ifdef COREXY
+    target_steps[A_MOTOR] = lround(target[A_MOTOR] * grbl.settings.steps_per_mm(A_MOTOR));
+    target_steps[B_MOTOR] = lround(target[B_MOTOR] * grbl.settings.steps_per_mm(B_MOTOR));
     block->steps[A_MOTOR] = labs((target_steps[X_AXIS]-position_steps[X_AXIS]) + (target_steps[Y_AXIS]-position_steps[Y_AXIS]));
     block->steps[B_MOTOR] = labs((target_steps[X_AXIS]-position_steps[X_AXIS]) - (target_steps[Y_AXIS]-position_steps[Y_AXIS]));
-  #endif
+    #endif
 
-  for (idx=0; idx<N_AXIS; idx++) {
-    // Calculate target position in absolute steps, number of steps for each axis, and determine max step events.
-    // Also, compute individual axes distance for move and prep unit vector calculations.
-    // NOTE: Computes true distance from converted step values.
-    #ifdef COREXY
-      if ( !(idx == A_MOTOR) && !(idx == B_MOTOR) ) {
-        target_steps[idx] = lroundf(target[idx]*settings.steps_per_mm[idx]);
-        block->steps[idx] = fabsf(target_steps[idx]-position_steps[idx]);
-      }
-      block->step_event_count = max(block->step_event_count, block->steps[idx]);
-      if (idx == A_MOTOR) {
-        delta_mm = (target_steps[X_AXIS]-position_steps[X_AXIS] + target_steps[Y_AXIS]-position_steps[Y_AXIS])/settings.steps_per_mm[idx];
-      } else if (idx == B_MOTOR) {
-        delta_mm = (target_steps[X_AXIS]-position_steps[X_AXIS] - target_steps[Y_AXIS]+position_steps[Y_AXIS])/settings.steps_per_mm[idx];
-      } else {
-        delta_mm = (target_steps[idx] - position_steps[idx])/settings.steps_per_mm[idx];
-      }
-    #else
-      target_steps[idx] = lroundf(target[idx]*grbl.settings.steps_per_mm(idx));
-      block->steps[idx] = abs(target_steps[idx]-position_steps[idx]);
-      block->step_event_count = max(block->step_event_count, block->steps[idx]);
-      delta_mm = (target_steps[idx] - position_steps[idx]) / grbl.settings.steps_per_mm(idx);
-	  #endif
-    unit_vec[idx] = delta_mm; // Store unit vector numerator
+    for (idx = 0; idx < N_AXIS; idx++) {
+        // Calculate target position in absolute steps, number of steps for each axis, and determine max step events.
+        // Also, compute individual axes distance for move and prep unit vector calculations.
+        // NOTE: Computes true distance from converted step values.
+        #ifdef COREXY
+        if ( !(idx == A_MOTOR) && !(idx == B_MOTOR) ) {
+            target_steps[idx] = lroundf(target[idx]*grbl.settings.steps_per_mm(idx));
+            block->steps[idx] = fabsf(target_steps[idx]-position_steps[idx]);
+        }
+        block->step_event_count = max(block->step_event_count, block->steps[idx]);
+        if (idx == A_MOTOR) {
+            delta_mm = (target_steps[X_AXIS]-position_steps[X_AXIS] + target_steps[Y_AXIS]-position_steps[Y_AXIS]) /
+                grbl.settings.steps_per_mm(idx);
+        } else if (idx == B_MOTOR) {
+            delta_mm = (target_steps[X_AXIS]-position_steps[X_AXIS] - target_steps[Y_AXIS]+position_steps[Y_AXIS]) /
+                grbl.settings.steps_per_mm(idx);
+        } else {
+            delta_mm = (target_steps[idx] - position_steps[idx]) / grbl.settings.steps_per_mm(idx);
+        }
+        #else
+        target_steps[idx] = lroundf(target[idx]*grbl.settings.steps_per_mm(idx));
+        block->steps[idx] = abs(target_steps[idx]-position_steps[idx]);
+        block->step_event_count = max(block->step_event_count, block->steps[idx]);
+        delta_mm = (target_steps[idx] - position_steps[idx]) / grbl.settings.steps_per_mm(idx);
+	    #endif
+        unit_vec[idx] = delta_mm; // Store unit vector numerator
 
-    // Set direction bits. Bit enabled always means direction is negative.
-    if (delta_mm < 0.0f ) { block->direction_bits |= direction_pin_mask[idx]; }
-  }
-
-  // Bail if this is a zero-length block. Highly unlikely to occur.
-  if (block->step_event_count == 0) { return(PLAN_EMPTY_BLOCK); }
-
-  // Calculate the unit vector of the line move and the block maximum feed rate and acceleration scaled
-  // down such that no individual axes maximum values are exceeded with respect to the line direction.
-  // NOTE: This calculation assumes all axes are orthogonal (Cartesian) and works with ABC-axes,
-  // if they are also orthogonal/independent. Operates on the absolute value of the unit vector.
-  block->millimeters = convert_delta_vector_to_unit_vector(unit_vec);
-  block->acceleration = limit_value_by_axis_maximum(grbl.settings.accelerations(), unit_vec);
-  block->rapid_rate = limit_value_by_axis_maximum(grbl.settings.max_rates(), unit_vec);
-
-  // Store programmed rate.
-  if (block->condition & PL_COND_FLAG_RAPID_MOTION) { block->programmed_rate = block->rapid_rate; }
-  else { 
-    block->programmed_rate = pl_data->feed_rate;
-    if (block->condition & PL_COND_FLAG_INVERSE_TIME) { block->programmed_rate *= block->millimeters; }
-  }
-
-  // TODO: Need to check this method handling zero junction speeds when starting from rest.
-  if ((block_buffer_head == block_buffer_tail) || (block->condition & PL_COND_FLAG_SYSTEM_MOTION)) {
-
-    // Initialize block entry speed as zero. Assume it will be starting from rest. Planner will correct this later.
-    // If system motion, the system motion block always is assumed to start from rest and end at a complete stop.
-    block->entry_speed_sqr = 0.0f;
-    block->max_junction_speed_sqr = 0.0f; // Starting from rest. Enforce start from zero velocity.
-
-  } else {
-    // Compute maximum allowable entry speed at junction by centripetal acceleration approximation.
-    // Let a circle be tangent to both previous and current path line segments, where the junction
-    // deviation is defined as the distance from the junction to the closest edge of the circle,
-    // colinear with the circle center. The circular segment joining the two paths represents the
-    // path of centripetal acceleration. Solve for max velocity based on max acceleration about the
-    // radius of the circle, defined indirectly by junction deviation. This may be also viewed as
-    // path width or max_jerk in the previous Grbl version. This approach does not actually deviate
-    // from path, but used as a robust way to compute cornering speeds, as it takes into account the
-    // nonlinearities of both the junction angle and junction velocity.
-    //
-    // NOTE: If the junction deviation value is finite, Grbl executes the motions in an exact path
-    // mode (G61). If the junction deviation value is zero, Grbl will execute the motion in an exact
-    // stop mode (G61.1) manner. In the future, if continuous mode (G64) is desired, the math here
-    // is exactly the same. Instead of motioning all the way to junction point, the machine will
-    // just follow the arc circle defined here. The Arduino doesn't have the CPU cycles to perform
-    // a continuous mode path, but ARM-based microcontrollers most certainly do.
-    //
-    // NOTE: The max junction speed is a fixed value, since machine acceleration limits cannot be
-    // changed dynamically during operation nor can the line move geometry. This must be kept in
-    // memory in the event of a feedrate override changing the nominal speeds of blocks, which can
-    // change the overall maximum entry speed conditions of all blocks.
-
-    float junction_unit_vec[N_AXIS];
-    float junction_cos_theta = 0.0f;
-    for (idx=0; idx<N_AXIS; idx++) {
-      junction_cos_theta -= pl.previous_unit_vec[idx]*unit_vec[idx];
-      junction_unit_vec[idx] = unit_vec[idx]-pl.previous_unit_vec[idx];
+        // Set direction bits. Bit enabled always means direction is negative.
+        if (delta_mm < 0.0f ) { block->direction_bits |= direction_pin_mask[idx]; }
     }
 
-    // NOTE: Computed without any expensive trig, sin() or acos(), by trig half angle identity of cos(theta).
-    if (junction_cos_theta > 0.999999f) {
-      //  For a 0 degree acute junction, just set minimum junction speed.
-      block->max_junction_speed_sqr = MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED;
+    // Bail if this is a zero-length block. Highly unlikely to occur.
+    if (block->step_event_count == 0) { return(PLAN_EMPTY_BLOCK); }
+
+    // Calculate the unit vector of the line move and the block maximum feed rate and acceleration scaled
+    // down such that no individual axes maximum values are exceeded with respect to the line direction.
+    // NOTE: This calculation assumes all axes are orthogonal (Cartesian) and works with ABC-axes,
+    // if they are also orthogonal/independent. Operates on the absolute value of the unit vector.
+    block->millimeters = convert_delta_vector_to_unit_vector(unit_vec);
+    block->acceleration = limit_value_by_axis_maximum(grbl.settings.accelerations(), unit_vec);
+    block->rapid_rate = limit_value_by_axis_maximum(grbl.settings.max_rates(), unit_vec);
+
+    // Store programmed rate.
+    if (block->condition & PL_COND_FLAG_RAPID_MOTION) { block->programmed_rate = block->rapid_rate; }
+    else {
+        block->programmed_rate = pl_data->feed_rate;
+        if (block->condition & PL_COND_FLAG_INVERSE_TIME) { block->programmed_rate *= block->millimeters; }
+    }
+
+    // TODO: Need to check this method handling zero junction speeds when starting from rest.
+    if ((block_buffer_head == block_buffer_tail) || (block->condition & PL_COND_FLAG_SYSTEM_MOTION)) {
+
+        // Initialize block entry speed as zero. Assume it will be starting from rest. Planner will correct this later.
+        // If system motion, the system motion block always is assumed to start from rest and end at a complete stop.
+        block->entry_speed_sqr = 0.0f;
+        block->max_junction_speed_sqr = 0.0f; // Starting from rest. Enforce start from zero velocity.
+
     } else {
-      if (junction_cos_theta < -0.999999f) {
-        // Junction is a straight line or 180 degrees. Junction speed is infinite.
-        block->max_junction_speed_sqr = SOME_LARGE_VALUE;
-      } else {
-        convert_delta_vector_to_unit_vector(junction_unit_vec);
-        float junction_acceleration = limit_value_by_axis_maximum(grbl.settings.accelerations(), junction_unit_vec);
-        float sin_theta_d2 = sqrtf(0.5f*(1.0f-junction_cos_theta)); // Trig half angle identity. Always positive.
-        block->max_junction_speed_sqr = max( MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED,
+        // Compute maximum allowable entry speed at junction by centripetal acceleration approximation.
+        // Let a circle be tangent to both previous and current path line segments, where the junction
+        // deviation is defined as the distance from the junction to the closest edge of the circle,
+        // colinear with the circle center. The circular segment joining the two paths represents the
+        // path of centripetal acceleration. Solve for max velocity based on max acceleration about the
+        // radius of the circle, defined indirectly by junction deviation. This may be also viewed as
+        // path width or max_jerk in the previous Grbl version. This approach does not actually deviate
+        // from path, but used as a robust way to compute cornering speeds, as it takes into account the
+        // nonlinearities of both the junction angle and junction velocity.
+        //
+        // NOTE: If the junction deviation value is finite, Grbl executes the motions in an exact path
+        // mode (G61). If the junction deviation value is zero, Grbl will execute the motion in an exact
+        // stop mode (G61.1) manner. In the future, if continuous mode (G64) is desired, the math here
+        // is exactly the same. Instead of motioning all the way to junction point, the machine will
+        // just follow the arc circle defined here. The Arduino doesn't have the CPU cycles to perform
+        // a continuous mode path, but ARM-based microcontrollers most certainly do.
+        //
+        // NOTE: The max junction speed is a fixed value, since machine acceleration limits cannot be
+        // changed dynamically during operation nor can the line move geometry. This must be kept in
+        // memory in the event of a feedrate override changing the nominal speeds of blocks, which can
+        // change the overall maximum entry speed conditions of all blocks.
+
+        float junction_unit_vec[N_AXIS];
+        float junction_cos_theta = 0.0f;
+        for (idx=0; idx<N_AXIS; idx++) {
+            junction_cos_theta -= pl.previous_unit_vec[idx]*unit_vec[idx];
+            junction_unit_vec[idx] = unit_vec[idx]-pl.previous_unit_vec[idx];
+        }
+
+        // NOTE: Computed without any expensive trig, sin() or acos(), by trig half angle identity of cos(theta).
+        if (junction_cos_theta > 0.999999f) {
+            //  For a 0 degree acute junction, just set minimum junction speed.
+            block->max_junction_speed_sqr = MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED;
+        } else {
+            if (junction_cos_theta < -0.999999f) {
+                // Junction is a straight line or 180 degrees. Junction speed is infinite.
+                block->max_junction_speed_sqr = SOME_LARGE_VALUE;
+            } else {
+                convert_delta_vector_to_unit_vector(junction_unit_vec);
+                float junction_acceleration = limit_value_by_axis_maximum(grbl.settings.accelerations(), junction_unit_vec);
+                float sin_theta_d2 = sqrtf(0.5f*(1.0f-junction_cos_theta)); // Trig half angle identity. Always positive.
+                block->max_junction_speed_sqr = max( MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED,
                        (junction_acceleration * grbl.settings.junction_deviation() * sin_theta_d2)/(1.0f-sin_theta_d2) );
-      }
+            }
+        }
     }
-  }
 
-  // Block system motion from updating this data to ensure next g-code motion is computed correctly.
-  if (!(block->condition & PL_COND_FLAG_SYSTEM_MOTION)) {
-    float nominal_speed = compute_profile_nominal_speed(block);
-    compute_profile_parameters(block, nominal_speed, pl.previous_nominal_speed);
-    pl.previous_nominal_speed = nominal_speed;
+    // Block system motion from updating this data to ensure next g-code motion is computed correctly.
+    if (!(block->condition & PL_COND_FLAG_SYSTEM_MOTION)) {
+        float nominal_speed = compute_profile_nominal_speed(block);
+        compute_profile_parameters(block, nominal_speed, pl.previous_nominal_speed);
+        pl.previous_nominal_speed = nominal_speed;
 
-    // Update previous path unit_vector and planner position.
-    memcpy(pl.previous_unit_vec, unit_vec, sizeof(unit_vec)); // pl.previous_unit_vec[] = unit_vec[]
-    memcpy(pl.position, target_steps, sizeof(target_steps)); // pl.position[] = target_steps[]
+        // Update previous path unit_vector and planner position.
+        memcpy(pl.previous_unit_vec, unit_vec, sizeof(unit_vec)); // pl.previous_unit_vec[] = unit_vec[]
+        memcpy(pl.position, target_steps, sizeof(target_steps)); // pl.position[] = target_steps[]
 
-    // New block is all set. Update buffer head and next buffer head indices.
-    block_buffer_head = next_buffer_head;
-    next_buffer_head = next_block_index(block_buffer_head);
+        // New block is all set. Update buffer head and next buffer head indices.
+        block_buffer_head = next_buffer_head;
+        next_buffer_head = next_block_index(block_buffer_head);
 
-    // Finish up by recalculating the plan with the new block.
-    recalculate();
-  }
-  return(PLAN_OK);
+        // Finish up by recalculating the plan with the new block.
+        recalculate();
+    }
+
+    return(PLAN_OK);
 }
 
 // Reset the planner position vectors. Called by the system abort/initialization routine.
 void GRBLPlanner::sync_position() {
-  // TODO: For motor configurations not in the same coordinate frame as the machine position,
-  // this function needs to be updated to accomodate the difference.
-  uint8_t idx;
-  for (idx=0; idx<N_AXIS; idx++) {
-    #ifdef COREXY
-      if (idx==X_AXIS) {
-        pl.position[X_AXIS] = system_convert_corexy_to_x_axis_steps(sys_position);
-      } else if (idx==Y_AXIS) {
-        pl.position[Y_AXIS] = system_convert_corexy_to_y_axis_steps(sys_position);
-      } else {
-        pl.position[idx] = sys_position[idx];
-      }
-    #else
-      pl.position[idx] = grbl.sys_position[idx];
-    #endif
-  }
+    // TODO: For motor configurations not in the same coordinate frame as the machine position,
+    // this function needs to be updated to accomodate the difference.
+    uint8_t idx;
+    for (idx = 0; idx < N_AXIS; idx++) {
+        #ifdef COREXY
+        if (idx == X_AXIS) {
+            pl.position[X_AXIS] = grbl.system.convert_corexy_to_x_axis_steps(grbl.sys_position);
+        } else if (idx == Y_AXIS) {
+            pl.position[Y_AXIS] = grbl.system.convert_corexy_to_y_axis_steps(grbl.sys_position);
+        } else {
+            pl.position[idx] = grbl.sys_position[idx];
+        }
+        #else
+        pl.position[idx] = grbl.sys_position[idx];
+        #endif
+    }
 }
 
 // Returns the number of available blocks are in the planner buffer.
 uint8_t GRBLPlanner::get_block_buffer_available() const {
-  if (block_buffer_head >= block_buffer_tail) { return((BLOCK_BUFFER_SIZE-1)-(block_buffer_head-block_buffer_tail)); }
-  return((block_buffer_tail-block_buffer_head-1));
+    if (block_buffer_head >= block_buffer_tail) { return((BLOCK_BUFFER_SIZE-1)-(block_buffer_head-block_buffer_tail)); }
+    return((block_buffer_tail-block_buffer_head-1));
 }
 
 // Returns the number of active blocks are in the planner buffer.
 // NOTE: Deprecated. Not used unless classic status reports are enabled in config.h
 uint8_t GRBLPlanner::get_block_buffer_count() {
-  if (block_buffer_head >= block_buffer_tail) { return(block_buffer_head-block_buffer_tail); }
-  return(BLOCK_BUFFER_SIZE - (block_buffer_tail-block_buffer_head));
+    if (block_buffer_head >= block_buffer_tail) { return(block_buffer_head-block_buffer_tail); }
+    return(BLOCK_BUFFER_SIZE - (block_buffer_tail-block_buffer_head));
 }
 
 // Re-initialize buffer plan with a partially completed block, assumed to exist at the buffer tail.

@@ -59,8 +59,10 @@ public:
     // Perform tool length probe cycle. Requires probe switch.
     uint8_t probe_cycle(float *target, plan_line_data_t *pl_data, uint8_t parser_flags);
 
+#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
     // Handles updating the override control state.
     void override_ctrl_update(uint8_t override_state);
+#endif
 
 #ifdef PARKING_ENABLE
     // Plans and executes the single special motion case for parking. Independent of main planner buffer.
