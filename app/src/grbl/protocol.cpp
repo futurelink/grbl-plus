@@ -45,10 +45,12 @@ void GRBLProtocol::main_loop() {
     } else {
         // Check if the safety door is open.
         grbl.sys.state = STATE_IDLE;
+        #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
         if (grbl.system.check_safety_door_ajar()) {
             bit_true(grbl.system.rt_exec_state, EXEC_SAFETY_DOOR);
             execute_realtime(); // Enter safety door mode. Should return as IDLE state.
         }
+        #endif
         // All systems go!
         grbl.system.execute_startup(line); // Execute startup script.
     }
@@ -608,13 +610,15 @@ void GRBLProtocol::exec_rt_suspend() {
                         while (!(grbl.sys.abort)) { exec_rt_system(); } // Do nothing until reset.
                         return; // Abort received. Return to re-initialize.
                     }
-          
+
                     // Allows resuming from parking/safety door. Actively checks if safety door is closed and ready to resume.
+                    #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
                     if (grbl.sys.state == STATE_SAFETY_DOOR) {
                         if (!(grbl.system.check_safety_door_ajar())) {
                             grbl.sys.suspend &= ~(SUSPEND_SAFETY_DOOR_AJAR); // Reset door ajar flag to denote ready to resume.
                         }
                     }
+                    #endif
 
                     // Handles parking restore and safety door resume.
                     if (grbl.sys.suspend & SUSPEND_INITIATE_RESTORE) {

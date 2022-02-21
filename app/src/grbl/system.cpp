@@ -41,7 +41,7 @@ void GRBLSystem::reset() {
 // defined by the CONTROL_PIN_INDEX in the header file.
 uint8_t GRBLSystem::control_get_state() {
     uint8_t control_state = 0;
-    uint16_t pin = CONTROL_PIN_PORT->IDR & CONTROL_MASK;
+    uint16_t pin = stm32_get_control_state();
 
     #ifdef INVERT_CONTROL_PIN_MASK
     pin ^= INVERT_CONTROL_PIN_MASK;
@@ -50,11 +50,11 @@ uint8_t GRBLSystem::control_get_state() {
         #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
         if (bit_isfalse(pin,(1<<CONTROL_SAFETY_DOOR_BIT))) { control_state |= CONTROL_PIN_INDEX_SAFETY_DOOR; }
         #endif
-        if (bit_isfalse(pin,(1<<CONTROL_RESET_BIT))) { control_state |= CONTROL_PIN_INDEX_RESET; }
-        if (bit_isfalse(pin,(1<<CONTROL_FEED_HOLD_BIT))) { control_state |= CONTROL_PIN_INDEX_FEED_HOLD; }
-        if (bit_isfalse(pin,(1<<CONTROL_CYCLE_START_BIT))) { control_state |= CONTROL_PIN_INDEX_CYCLE_START; }
+        if (bit_isfalse(pin, (1<<CONTROL_RESET_BIT))) { control_state |= CONTROL_PIN_INDEX_RESET; }
+        if (bit_isfalse(pin, (1<<CONTROL_FEED_HOLD_BIT))) { control_state |= CONTROL_PIN_INDEX_FEED_HOLD; }
+        if (bit_isfalse(pin, (1<<CONTROL_CYCLE_START_BIT))) { control_state |= CONTROL_PIN_INDEX_CYCLE_START; }
     }
-    return (control_state);
+    return control_state;
 }
 
 // Pin change interrupt for pin-out commands, i.e. cycle start, feed hold, and reset. Sets
@@ -62,19 +62,19 @@ uint8_t GRBLSystem::control_get_state() {
 // its ready. This works exactly like the character-based realtime commands when picked off
 // directly from the incoming serial data stream.
 void GRBLSystem::external_interrupts_handle() {
-    uint8_t pin = control_get_state();
-    if (pin) {
-        if (bit_istrue(pin, CONTROL_PIN_INDEX_RESET)) {
+    uint8_t state = control_get_state();
+    if (state) {
+        if (bit_istrue(state, CONTROL_PIN_INDEX_RESET)) {
             grbl.motion.reset();
-        } else if (bit_istrue(pin, CONTROL_PIN_INDEX_CYCLE_START)) {
+        } else if (bit_istrue(state, CONTROL_PIN_INDEX_CYCLE_START)) {
             bit_true(grbl.system.rt_exec_state, EXEC_CYCLE_START);
         }
         #ifndef ENABLE_SAFETY_DOOR_INPUT_PIN
-        else if (bit_istrue(pin, CONTROL_PIN_INDEX_FEED_HOLD)) {
+        else if (bit_istrue(state, CONTROL_PIN_INDEX_FEED_HOLD)) {
             bit_true(grbl.system.rt_exec_state, EXEC_FEED_HOLD);
         }
         #else
-        else if (bit_istrue(pin, CONTROL_PIN_INDEX_SAFETY_DOOR)) {
+        else if (bit_istrue(state, CONTROL_PIN_INDEX_SAFETY_DOOR)) {
 			bit_true(grbl.system.rt_exec_state, EXEC_SAFETY_DOOR);
 		}
         #endif
@@ -82,14 +82,12 @@ void GRBLSystem::external_interrupts_handle() {
     }
 }
 
+#ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
 // Returns if safety door is ajar(T) or closed(F), based on pin state.
 uint8_t GRBLSystem::check_safety_door_ajar() {
-    #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
         return(grbl.system.control_get_state() & CONTROL_PIN_INDEX_SAFETY_DOOR);
-    #else
-        return(false); // Input pin not enabled, so just return that it's closed.
-    #endif
 }
+#endif
 
 // Executes user startup script, if stored.
 void GRBLSystem::execute_startup(char *line) {
@@ -158,8 +156,10 @@ uint8_t GRBLSystem::execute_line(char *line) {
                 case 'X' : // Disable alarm lock [ALARM]
                     if (grbl.sys.state == STATE_ALARM) {
 
+                        #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
                         // Block if safety door is ajar.
                         if (check_safety_door_ajar()) { return(STATUS_CHECK_DOOR); }
+                        #endif
 
                         GRBLReport::feedback_message(MESSAGE_ALARM_UNLOCK);
                         grbl.sys.state = STATE_IDLE;
@@ -181,7 +181,9 @@ uint8_t GRBLSystem::execute_line(char *line) {
                 case 'H' : // Perform homing cycle [IDLE/ALARM]
                     if (bit_isfalse(grbl.settings.flags(),BITFLAG_HOMING_ENABLE)) {return(STATUS_SETTING_DISABLED); }
 
+                    #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
                     if (check_safety_door_ajar()) { return(STATUS_CHECK_DOOR); } // Block if safety door is ajar.
+                    #endif
 
                     grbl.sys.state = STATE_HOMING; // Set system state variable
                     if (line[2] == 0) {

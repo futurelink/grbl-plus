@@ -183,8 +183,10 @@ public:
     // Returns bitfield of control pin states, organized by CONTROL_PIN_INDEX. (1=triggered, 0=not triggered).
     uint8_t control_get_state();
 
+    #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
     // Returns if safety door is open or closed, based on pin state.
     uint8_t check_safety_door_ajar();
+    #endif
 
     // Executes an internal system command, defined as a string starting with a '$'
     uint8_t execute_line(char *line);

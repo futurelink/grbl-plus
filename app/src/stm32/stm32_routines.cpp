@@ -454,3 +454,7 @@ void stm32_steppers_wake_up(uint8_t step_pulse_time, uint16_t cycles_per_tick) {
     TIM2->EGR = 1; // Immediate reload
     NVIC_EnableIRQ(TIM2_IRQn);
 }
+
+uint16_t stm32_get_control_state() {
+    return CONTROL_PIN_PORT->IDR & CONTROL_MASK;
+}

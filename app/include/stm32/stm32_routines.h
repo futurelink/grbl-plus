@@ -79,6 +79,8 @@ bool stm32_steppers_pulse_start(bool busy, PORTPINDEF dir_bits, PORTPINDEF step_
 
 void stm32_steppers_pulse_end(PORTPINDEF step_mask);
 
+uint16_t stm32_get_control_state();
+
 #ifdef __cplusplus
 }
 #endif
