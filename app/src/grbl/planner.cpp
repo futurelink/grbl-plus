@@ -299,11 +299,11 @@ uint8_t GRBLPlanner::buffer_line(float *target, plan_line_data_t *pl_data) {
     // Copy position data based on type of motion being planned.
     if (block->condition & PL_COND_FLAG_SYSTEM_MOTION) {
         #ifdef COREXY
-        position_steps[X_AXIS] = grbl.system.convert_corexy_to_x_axis_steps(grbl.sys_position);
-        position_steps[Y_AXIS] = grbl.system.convert_corexy_to_y_axis_steps(grbl.sys_position);
-        position_steps[Z_AXIS] = grbl.sys_position[Z_AXIS];
+        position_steps[X_AXIS] = grbl.system.convert_corexy_to_x_axis_steps(grbl.system.position);
+        position_steps[Y_AXIS] = grbl.system.convert_corexy_to_y_axis_steps(grbl.system.position);
+        position_steps[Z_AXIS] = grbl.system.position[Z_AXIS];
         #else
-        memcpy(position_steps, grbl.sys_position, sizeof(grbl.sys_position));
+        memcpy(position_steps, grbl.system.position, sizeof(grbl.system.position));
         #endif
     }
     else { memcpy(position_steps, pl.position, sizeof(pl.position)); }
@@ -449,14 +449,14 @@ void GRBLPlanner::sync_position() {
     for (idx = 0; idx < N_AXIS; idx++) {
         #ifdef COREXY
         if (idx == X_AXIS) {
-            pl.position[X_AXIS] = grbl.system.convert_corexy_to_x_axis_steps(grbl.sys_position);
+            pl.position[X_AXIS] = grbl.system.convert_corexy_to_x_axis_steps(grbl.system.position);
         } else if (idx == Y_AXIS) {
-            pl.position[Y_AXIS] = grbl.system.convert_corexy_to_y_axis_steps(grbl.sys_position);
+            pl.position[Y_AXIS] = grbl.system.convert_corexy_to_y_axis_steps(grbl.system.position);
         } else {
-            pl.position[idx] = grbl.sys_position[idx];
+            pl.position[idx] = grbl.system.position[idx];
         }
         #else
-        pl.position[idx] = grbl.sys_position[idx];
+        pl.position[idx] = grbl.system.position[idx];
         #endif
     }
 }

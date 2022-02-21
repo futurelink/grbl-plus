@@ -480,7 +480,7 @@ void GRBLSteppers::go_idle() {
 
     // Set stepper driver idle state, disabled or enabled, depending on settings and circumstances.
     bool pin_state = false; // Keep enabled.
-    if (((grbl.settings.stepper_idle_lock_time() != 0xff) || grbl.sys_rt_exec_alarm || grbl.sys.state == STATE_SLEEP) && grbl.sys.state != STATE_HOMING) {
+    if (((grbl.settings.stepper_idle_lock_time() != 0xff) || grbl.system.rt_exec_alarm || grbl.sys.state == STATE_SLEEP) && grbl.sys.state != STATE_HOMING) {
         // Force stepper dwell to lock axes for a defined amount of time to ensure the axes come to a complete
         // stop and not drift from residual inertial forces at the end of the last movement.
         HAL_Delay(grbl.settings.stepper_idle_lock_time());
@@ -751,7 +751,7 @@ void GRBLSteppers::pulse_start() {
     }
 
     // Check probing state.
-    if (grbl.sys_probe_state == PROBE_ACTIVE) { grbl.probe.state_monitor(); }
+    if (grbl.system.probe_state == PROBE_ACTIVE) { grbl.probe.state_monitor(); }
 
     // Reset step out bits.
     st.step_outbits = 0;
@@ -766,8 +766,8 @@ void GRBLSteppers::pulse_start() {
     if (st.counter_x > st.exec_block->step_event_count) {
         st.step_outbits |= (1 << X_STEP_BIT);
         st.counter_x -= st.exec_block->step_event_count;
-        if (st.exec_block->direction_bits & (1 << X_DIRECTION_BIT)) { grbl.sys_position[X_AXIS]--; }
-        else { grbl.sys_position[X_AXIS]++; }
+        if (st.exec_block->direction_bits & (1 << X_DIRECTION_BIT)) { grbl.system.position[X_AXIS]--; }
+        else { grbl.system.position[X_AXIS]++; }
     }
 
     #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
@@ -779,8 +779,8 @@ void GRBLSteppers::pulse_start() {
     if (st.counter_y > st.exec_block->step_event_count) {
         st.step_outbits |= (1 << Y_STEP_BIT);
         st.counter_y -= st.exec_block->step_event_count;
-        if (st.exec_block->direction_bits & (1 << Y_DIRECTION_BIT)) { grbl.sys_position[Y_AXIS]--; }
-        else { grbl.sys_position[Y_AXIS]++; }
+        if (st.exec_block->direction_bits & (1 << Y_DIRECTION_BIT)) { grbl.system.position[Y_AXIS]--; }
+        else { grbl.system.position[Y_AXIS]++; }
     }
 
     #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
@@ -792,8 +792,8 @@ void GRBLSteppers::pulse_start() {
     if (st.counter_z > st.exec_block->step_event_count) {
         st.step_outbits |= (1 << Z_STEP_BIT);
         st.counter_z -= st.exec_block->step_event_count;
-        if (st.exec_block->direction_bits & (1 << Z_DIRECTION_BIT)) { grbl.sys_position[Z_AXIS]--; }
-        else { grbl.sys_position[Z_AXIS]++; }
+        if (st.exec_block->direction_bits & (1 << Z_DIRECTION_BIT)) { grbl.system.position[Z_AXIS]--; }
+        else { grbl.system.position[Z_AXIS]++; }
     }
 
     // During a homing cycle, lock out and prevent desired axes from moving.

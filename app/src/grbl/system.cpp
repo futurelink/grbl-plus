@@ -24,6 +24,16 @@
 
 void GRBLSystem::init() {
     stm32_system_init();
+    memset(position, 0, sizeof(position)); // Clear machine position.
+}
+
+void GRBLSystem::reset() {
+    probe_state = 0;
+    rt_exec_state = 0;
+    rt_exec_alarm = 0;
+    rt_exec_motion_override = 0;
+    rt_exec_accessory_override = 0;
+    memset(probe_position, 0, sizeof(probe_position)); // Clear probe position.
 }
 
 // Returns control pin state as a uint8 bitfield. Each bit indicates the input pin state, where
@@ -57,15 +67,15 @@ void GRBLSystem::external_interrupts_handle() {
         if (bit_istrue(pin, CONTROL_PIN_INDEX_RESET)) {
             grbl.motion.reset();
         } else if (bit_istrue(pin, CONTROL_PIN_INDEX_CYCLE_START)) {
-            bit_true(grbl.sys_rt_exec_state, EXEC_CYCLE_START);
+            bit_true(grbl.system.rt_exec_state, EXEC_CYCLE_START);
         }
         #ifndef ENABLE_SAFETY_DOOR_INPUT_PIN
         else if (bit_istrue(pin, CONTROL_PIN_INDEX_FEED_HOLD)) {
-            bit_true(grbl.sys_rt_exec_state, EXEC_FEED_HOLD);
+            bit_true(grbl.system.rt_exec_state, EXEC_FEED_HOLD);
         }
         #else
         else if (bit_istrue(pin, CONTROL_PIN_INDEX_SAFETY_DOOR)) {
-			bit_true(grbl.sys_rt_exec_state, EXEC_SAFETY_DOOR);
+			bit_true(grbl.system.rt_exec_state, EXEC_SAFETY_DOOR);
 		}
         #endif
 
@@ -346,48 +356,48 @@ uint8_t GRBLSystem::check_travel_limits(float *target) {
 // Special handlers for setting and clearing Grbl's real-time execution flags.
 void GRBLSystem::set_exec_state_flag(uint8_t mask) {
     __disable_irq();
-    grbl.sys_rt_exec_state |= (mask);
+    grbl.system.rt_exec_state |= (mask);
     __enable_irq();
 }
 
 void GRBLSystem::clear_exec_state_flag(uint8_t mask) {
     __disable_irq();
-    grbl.sys_rt_exec_state &= ~(mask);
+    grbl.system.rt_exec_state &= ~(mask);
     __enable_irq();
 }
 
 void GRBLSystem::set_exec_alarm(uint8_t code) {
     __disable_irq();
-    grbl.sys_rt_exec_alarm |= (code);
+    grbl.system.rt_exec_alarm |= (code);
     __enable_irq();
 }
 
 void GRBLSystem::clear_exec_alarm() {
     __disable_irq();
-    grbl.sys_rt_exec_alarm = 0;
+    grbl.system.rt_exec_alarm = 0;
     __enable_irq();
 }
 
 void GRBLSystem::set_exec_motion_override_flag(uint8_t mask) {
     __disable_irq();
-    grbl.sys_rt_exec_motion_override |= (mask);
+    grbl.system.rt_exec_motion_override |= (mask);
     __enable_irq();
 }
 
 void GRBLSystem::set_exec_accessory_override_flag(uint8_t mask) {
     __disable_irq();
-    grbl.sys_rt_exec_accessory_override |= (mask);
+    grbl.system.rt_exec_accessory_override |= (mask);
     __enable_irq();
 }
 
 void GRBLSystem::clear_exec_motion_overrides() {
     __disable_irq();
-    grbl.sys_rt_exec_motion_override = 0;
+    grbl.system.rt_exec_motion_override = 0;
     __enable_irq();
 }
 
 void GRBLSystem::clear_exec_accessory_overrides() {
     __disable_irq();
-    grbl.sys_rt_exec_accessory_override = 0;
+    grbl.system.rt_exec_accessory_override = 0;
     __enable_irq();
 }

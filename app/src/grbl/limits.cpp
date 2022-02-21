@@ -80,7 +80,7 @@ void GRBLLimits::external_interrupt_handle() {
     // locked out until a homing cycle or a kill lock command. Allows the user to disable the hard
     // limit setting if their limits are constantly triggering after a reset and move their axes.
     if (grbl.sys.state != STATE_ALARM) {
-        if (!(grbl.sys_rt_exec_alarm)) {
+        if (!(grbl.system.rt_exec_alarm)) {
             #ifdef HARD_LIMIT_FORCE_STATE_CHECK
             // Check limit pin state.
             if (grbl.limits.get_state()) {
@@ -103,7 +103,7 @@ ISR(WDT_vect) // Watchdog timer ISR
 {
   WDTCSR &= ~(1 << WDIE); // Disable watchdog timer. 
   if (grbl.sys.state != STATE_ALARM) {  // Ignore if already in alarm state. 
-    if (!(sys_rt_exec_alarm)) {
+    if (!(grbl.system.rt_exec_alarm)) {
       // Check limit pin state. 
       if (limits_get_state()) {
         mc_reset(); // Initiate system kill.
@@ -164,7 +164,7 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
 
     uint8_t limit_state, axislock, n_active_axis;
     do {
-        grbl.system.convert_array_steps_to_mpos(target,grbl.sys_position);
+        grbl.system.convert_array_steps_to_mpos(target,grbl.system.position);
 
         // Initialize and declare variables needed for homing routine.
         axislock = 0;
@@ -175,17 +175,17 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
                 n_active_axis++;
                 #ifdef COREXY
                 if (idx == X_AXIS) {
-                    int32_t axis_position = grbl.system.convert_corexy_to_y_axis_steps(grbl.sys_position);
-                    grbl.sys_position[A_MOTOR] = axis_position;
-                    grbl.sys_position[B_MOTOR] = -axis_position;
+                    int32_t axis_position = grbl.system.convert_corexy_to_y_axis_steps(grbl.system.position);
+                    grbl.system.position[A_MOTOR] = axis_position;
+                    grbl.system.position[B_MOTOR] = -axis_position;
                 } else if (idx == Y_AXIS) {
-                    int32_t axis_position = grbl.system.convert_corexy_to_x_axis_steps(grbl.sys_position);
-                    grbl.sys_position[A_MOTOR] = grbl.sys_position[B_MOTOR] = axis_position;
+                    int32_t axis_position = grbl.system.convert_corexy_to_x_axis_steps(grbl.system.position);
+                    grbl.system.position[A_MOTOR] = grbl.system.position[B_MOTOR] = axis_position;
                 } else {
-                    grbl.sys_position[Z_AXIS] = 0;
+                    grbl.system.position[Z_AXIS] = 0;
                 }
                 #else
-                grbl.sys_position[idx] = 0;
+                grbl.system.position[idx] = 0;
                 #endif
                 // Set target direction based on cycle mask and homing cycle approach state.
                 // NOTE: This happens to compile smaller than any other implementation tried.
@@ -233,8 +233,8 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
             grbl.steppers.prep_buffer(); // Check and prep segment buffer. NOTE: Should take no longer than 200us.
 
             // Exit routines: No time to run protocol_execute_realtime() in this loop.
-            if (grbl.sys_rt_exec_state & (EXEC_SAFETY_DOOR | EXEC_RESET | EXEC_CYCLE_STOP)) {
-                uint8_t rt_exec = grbl.sys_rt_exec_state;
+            if (grbl.system.rt_exec_state & (EXEC_SAFETY_DOOR | EXEC_RESET | EXEC_CYCLE_STOP)) {
+                uint8_t rt_exec = grbl.system.rt_exec_state;
                 // Homing failure condition: Reset issued during cycle.
                 if (rt_exec & EXEC_RESET) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_RESET); }
                 // Homing failure condition: Safety door was opened.
@@ -243,7 +243,7 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
                 if (!approach && (get_state() & cycle_mask)) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_PULLOFF); }
                 // Homing failure condition: Limit switch not found during approach.
                 if (approach && (rt_exec & EXEC_CYCLE_STOP)) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_APPROACH); }
-                if (grbl.sys_rt_exec_alarm) {
+                if (grbl.system.rt_exec_alarm) {
                     grbl.motion.reset(); // Stop motors, if they are running.
                     GRBLProtocol::execute_realtime();
                     return;
@@ -295,18 +295,18 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
 
             #ifdef COREXY
             if (idx == X_AXIS) {
-                int32_t off_axis_position = grbl.system.convert_corexy_to_y_axis_steps(grbl.sys_position);
-                grbl.sys_position[A_MOTOR] = set_axis_position + off_axis_position;
-                grbl.sys_position[B_MOTOR] = set_axis_position - off_axis_position;
+                int32_t off_axis_position = grbl.system.convert_corexy_to_y_axis_steps(grbl.system.position);
+                grbl.system.position[A_MOTOR] = set_axis_position + off_axis_position;
+                grbl.system.position[B_MOTOR] = set_axis_position - off_axis_position;
             } else if (idx == Y_AXIS) {
-                int32_t off_axis_position = grbl.system.convert_corexy_to_x_axis_steps(grbl.sys_position);
-                grbl.sys_position[A_MOTOR] = off_axis_position + set_axis_position;
-                grbl.sys_position[B_MOTOR] = off_axis_position - set_axis_position;
+                int32_t off_axis_position = grbl.system.convert_corexy_to_x_axis_steps(grbl.system.position);
+                grbl.system.position[A_MOTOR] = off_axis_position + set_axis_position;
+                grbl.system.position[B_MOTOR] = off_axis_position - set_axis_position;
             } else {
-                grbl.sys_position[idx] = set_axis_position;
+                grbl.system.position[idx] = set_axis_position;
             }
             #else
-            grbl.sys_position[idx] = set_axis_position;
+            grbl.system.position[idx] = set_axis_position;
             #endif
         }
     }

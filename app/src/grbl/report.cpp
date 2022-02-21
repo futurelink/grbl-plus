@@ -224,7 +224,7 @@ void GRBLReport::probe_parameters() {
     // Report in terms of machine position.
     printPgmString(PSTR("[PRB:"));
     float print_position[N_AXIS];
-    grbl.system.convert_array_steps_to_mpos(print_position,grbl.sys_probe_position);
+    grbl.system.convert_array_steps_to_mpos(print_position,grbl.system.probe_position);
     report_util_axis_values(print_position);
     grbl.serial.write(':');
     print_uint8_base10(grbl.sys.probe_succeeded);
@@ -445,7 +445,7 @@ void GRBLReport::echo_line_received(char *line) {
 void GRBLReport::realtime_status() {
     uint8_t idx;
     int32_t current_position[N_AXIS]; // Copy current state of the system position variable
-    memcpy(current_position, grbl.sys_position, sizeof(grbl.sys_position));
+    memcpy(current_position, grbl.system.position, sizeof(grbl.system.position));
     float print_position[N_AXIS];
     grbl.system.convert_array_steps_to_mpos(print_position, current_position);
 
@@ -621,5 +621,5 @@ void GRBLReport::realtime_status() {
 }
 
 #ifdef DEBUG
-void report_realtime_debug() {}
+void GRBLReport::realtime_debug() {}
 #endif

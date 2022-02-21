@@ -46,7 +46,7 @@ void GRBLProtocol::main_loop() {
         // Check if the safety door is open.
         grbl.sys.state = STATE_IDLE;
         if (grbl.system.check_safety_door_ajar()) {
-            bit_true(grbl.sys_rt_exec_state, EXEC_SAFETY_DOOR);
+            bit_true(grbl.system.rt_exec_state, EXEC_SAFETY_DOOR);
             execute_realtime(); // Enter safety door mode. Should return as IDLE state.
         }
         // All systems go!
@@ -186,7 +186,7 @@ void GRBLProtocol::auto_cycle_start() {
 // handles them, removing the need to define more computationally-expensive volatile variables. This
 // also provides a controlled way to execute certain tasks without having two or more instances of
 // the same task, such as the planner recalculating the buffer upon a feedhold or overrides.
-// NOTE: The sys_rt_exec_state variable flags are set by any process, step or serial interrupts, pinouts,
+// NOTE: The rt_exec_state variable flags are set by any process, step or serial interrupts, pinouts,
 // limit switches, or the main program.
 void GRBLProtocol::execute_realtime() {
     exec_rt_system();
@@ -199,7 +199,7 @@ void GRBLProtocol::execute_realtime() {
 // NOTE: Do not alter this unless you know exactly what you are doing!
 void GRBLProtocol::exec_rt_system() {
   uint8_t rt_exec; // Temp variable to avoid calling volatile multiple times.
-  rt_exec = grbl.sys_rt_exec_alarm; // Copy volatile sys_rt_exec_alarm.
+  rt_exec = grbl.system.rt_exec_alarm; // Copy volatile rt_exec_alarm.
   if (rt_exec) { // Enter only if any bit flag is true
     // System alarm. Everything has shutdown by something that has gone severely wrong. Report
     // the source of the error to the user. If critical, Grbl disables by entering an infinite
@@ -216,12 +216,12 @@ void GRBLProtocol::exec_rt_system() {
         // the user and a GUI time to do what is needed before resetting, like killing the
         // incoming stream. The same could be said about soft limits. While the position is not
         // lost, continued streaming could cause a serious crash if by chance it gets executed.
-      } while (bit_isfalse(grbl.sys_rt_exec_state,EXEC_RESET));
+      } while (bit_isfalse(grbl.system.rt_exec_state,EXEC_RESET));
     }
       grbl.system.clear_exec_alarm(); // Clear alarm
   }
 
-  rt_exec = grbl.sys_rt_exec_state; // Copy volatile sys_rt_exec_state.
+  rt_exec = grbl.system.rt_exec_state; // Copy volatile rt_exec_state.
   if (rt_exec) {
 
         // Execute system abort.
@@ -387,7 +387,7 @@ void GRBLProtocol::exec_rt_system() {
   }
 
   // Execute overrides.
-  rt_exec = grbl.sys_rt_exec_motion_override; // Copy volatile sys_rt_exec_motion_override
+  rt_exec = grbl.system.rt_exec_motion_override; // Copy volatile rt_exec_motion_override
   if (rt_exec) {
       grbl.system.clear_exec_motion_overrides(); // Clear all motion override flags.
 
@@ -414,7 +414,7 @@ void GRBLProtocol::exec_rt_system() {
     }
   }
 
-  rt_exec = grbl.sys_rt_exec_accessory_override;
+  rt_exec = grbl.system.rt_exec_accessory_override;
   if (rt_exec) {
       grbl.system.clear_exec_accessory_overrides(); // Clear all accessory override flags.
 
@@ -468,9 +468,9 @@ void GRBLProtocol::exec_rt_system() {
   }
 
   #ifdef DEBUG
-    if (sys_rt_exec_debug) {
-      report_realtime_debug();
-      sys_rt_exec_debug = 0;
+    if (grbl.system.rt_exec_debug) {
+      GRBLReport::realtime_debug();
+      grbl.system.rt_exec_debug = 0;
     }
   #endif
 
@@ -544,7 +544,7 @@ void GRBLProtocol::exec_rt_suspend() {
                     grbl.coolant.set_state(COOLANT_DISABLE);     // De-energize
                     #else
                     // Get current position and store restore location and spindle retract waypoint.
-                    system_convert_array_steps_to_mpos(parking_target,sys_position);
+                    system_convert_array_steps_to_mpos(parking_target,system.position);
                     if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
                         memcpy(restore_target,parking_target,sizeof(parking_target));
                         retract_waypoint += restore_target[PARKING_AXIS];

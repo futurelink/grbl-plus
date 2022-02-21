@@ -274,7 +274,7 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     line(target, pl_data);
 
     // Activate the probing state monitor in the stepper module.
-    grbl.sys_probe_state = PROBE_ACTIVE;
+    grbl.system.probe_state = PROBE_ACTIVE;
 
     // Perform probing cycle. Wait here until probe is triggered or motion completes.
     grbl.system.set_exec_state_flag(EXEC_CYCLE_START);
@@ -286,13 +286,13 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     // Probing cycle complete!
 
     // Set state variables and error out, if the probe failed and cycle with error is enabled.
-    if (grbl.sys_probe_state == PROBE_ACTIVE) {
-        if (is_no_error) { memcpy(grbl.sys_probe_position, grbl.sys_position, sizeof(grbl.sys_position)); }
+    if (grbl.system.probe_state == PROBE_ACTIVE) {
+        if (is_no_error) { memcpy(grbl.system.probe_position, grbl.system.position, sizeof(grbl.system.position)); }
         else { grbl.system.set_exec_alarm(EXEC_ALARM_PROBE_FAIL_CONTACT); }
     } else {
         grbl.sys.probe_succeeded = true; // Indicate to system the probing cycle completed successfully.
     }
-    grbl.sys_probe_state = PROBE_OFF; // Ensure probe state monitor is disabled.
+    grbl.system.probe_state = PROBE_OFF; // Ensure probe state monitor is disabled.
     grbl.probe.configure_invert_mask(false); // Re-initialize invert mask.
     GRBLProtocol::execute_realtime();   // Check and execute run-time commands
 
@@ -355,7 +355,7 @@ void GRBLMotion::override_ctrl_update(uint8_t override_state)
 // realtime abort command and hard limits. So, keep to a minimum.
 void GRBLMotion::reset() {
     // Only this function can set the system reset. Helps prevent multiple kill calls.
-    if (bit_isfalse(grbl.sys_rt_exec_state, EXEC_RESET)) {
+    if (bit_isfalse(grbl.system.rt_exec_state, EXEC_RESET)) {
         grbl.system.set_exec_state_flag(EXEC_RESET);
 
         // Kill spindle and coolant.
@@ -369,7 +369,7 @@ void GRBLMotion::reset() {
         if ((grbl.sys.state & (STATE_CYCLE | STATE_HOMING | STATE_JOG)) ||
             (grbl.sys.step_control & (STEP_CONTROL_EXECUTE_HOLD | STEP_CONTROL_EXECUTE_SYS_MOTION))) {
             if (grbl.sys.state == STATE_HOMING) {
-                if (!grbl.sys_rt_exec_alarm) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_RESET); }
+                if (!grbl.system.rt_exec_alarm) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_RESET); }
             } else {
                 grbl.system.set_exec_alarm(EXEC_ALARM_ABORT_CYCLE);
             }

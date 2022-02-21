@@ -138,7 +138,7 @@ public:
     static void build_info(char *line);
 
 #ifdef DEBUG
-    void report_realtime_debug();
+    static void realtime_debug();
 #endif
 
 };

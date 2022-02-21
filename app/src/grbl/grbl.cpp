@@ -30,8 +30,6 @@ GRBLMain::GRBLMain() {
     steppers.init();    // Configure stepper pins and interrupt timers
     system.init();      // Configure pinout pins and pin-change interrupt
 
-    memset(sys_position, 0, sizeof(sys_position)); // Clear machine position.
-
     // Initialize system state.
 #ifdef FORCE_INITIALIZATION_ALARM
     // Force Grbl into an ALARM state upon a power-cycle or hard reset.
@@ -52,9 +50,9 @@ GRBLMain::GRBLMain() {
 #endif
 }
 
+// Grbl initialization loop upon power-up or a system abort.
+// For the latter, all processes will return to this loop to be cleanly re-initialized.
 void GRBLMain::run() {
-    // Grbl initialization loop upon power-up or a system abort. For the latter, all processes
-    // will return to this loop to be cleanly re-initialized.
     for (;;) {
         // Reset system variables.
         uint8_t prior_state = sys.state;
@@ -64,16 +62,10 @@ void GRBLMain::run() {
         sys.r_override = DEFAULT_RAPID_OVERRIDE; // Set to 100%
         sys.spindle_speed_ovr = DEFAULT_SPINDLE_SPEED_OVERRIDE; // Set to 100%
 
-        memset(sys_probe_position, 0, sizeof(sys_probe_position)); // Clear probe position.
-
-        sys_probe_state = 0;
-        sys_rt_exec_state = 0;
-        sys_rt_exec_alarm = 0;
-        sys_rt_exec_motion_override = 0;
-        sys_rt_exec_accessory_override = 0;
-
         // Reset Grbl primary systems.
+        system.reset();
         serial.reset_read_buffer(); // Clear serial read buffer
+
         gcode.init(); // Set g-code parser to default state
         spindle.init();
         coolant.init();

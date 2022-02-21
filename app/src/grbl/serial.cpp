@@ -57,7 +57,7 @@ void GRBLSerial::write(uint8_t data) {
     // Wait until there is space in the buffer
     while (next_head == tx_buffer_tail) {
         // TODO: Restructure st_prep_buffer() calls to be executed here during a long print.
-        if (grbl.sys_rt_exec_state & EXEC_RESET) { return; } // Only check for abort to avoid an endless loop.
+        if (grbl.system.rt_exec_state & EXEC_RESET) { return; } // Only check for abort to avoid an endless loop.
     }
 
     // Store data and advance head
@@ -123,7 +123,7 @@ void OnUsbDataRx(uint8_t* dataIn, uint8_t length) {
                     }
                     break;
                 #ifdef DEBUG
-                    case CMD_DEBUG_REPORT: {uint8_t sreg = SREG; cli(); bit_true(sys_rt_exec_debug,EXEC_DEBUG_REPORT); SREG = sreg;} break;
+                    case CMD_DEBUG_REPORT: { bit_true(grbl.system.rt_exec_debug, EXEC_DEBUG_REPORT); } break;
                 #endif
                 case CMD_FEED_OVR_RESET: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_RESET); break;
                 case CMD_FEED_OVR_COARSE_PLUS: grbl.system.set_exec_motion_override_flag(EXEC_FEED_OVR_COARSE_PLUS); break;

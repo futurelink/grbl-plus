@@ -44,7 +44,7 @@ void GRBLCode::init() {
 // Sets g-code parser position in mm. Input in steps. Called by the system abort and hard
 // limit pull-off routines.
 void GRBLCode::sync_position() {
-    grbl.system.convert_array_steps_to_mpos(state.position,grbl.sys_position);
+    grbl.system.convert_array_steps_to_mpos(state.position,grbl.system.position);
 }
 
 // Executes one line of 0-terminated G-Code. The line is assumed to contain only uppercase
@@ -1068,7 +1068,7 @@ uint8_t GRBLCode::execute_line(char *line)
       if (gc_update_pos == GC_UPDATE_POS_TARGET) {
         memcpy(state.position, block.values.xyz, sizeof(block.values.xyz)); // state.position[] = block.values.xyz[]
       } else if (gc_update_pos == GC_UPDATE_POS_SYSTEM) {
-        sync_position(); // state.position[] = sys_position
+        sync_position();
       } // == GC_UPDATE_POS_NONE
     }     
 

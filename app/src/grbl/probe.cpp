@@ -46,8 +46,8 @@ uint8_t GRBLProbe::get_state() {
 // NOTE: This function must be extremely efficient as to not bog down the stepper ISR.
 void GRBLProbe::state_monitor()  {
     if (get_state()) {
-        grbl.sys_probe_state = PROBE_OFF;
-        memcpy(grbl.sys_probe_position, grbl.sys_position, sizeof(grbl.sys_position));
-        bit_true(grbl.sys_rt_exec_state, EXEC_MOTION_CANCEL);
+        grbl.system.probe_state = PROBE_OFF;
+        memcpy(grbl.system.probe_position, grbl.system.position, sizeof(grbl.system.position));
+        bit_true(grbl.system.rt_exec_state, EXEC_MOTION_CANCEL);
     }
 }
