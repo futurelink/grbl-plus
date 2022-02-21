@@ -34,11 +34,11 @@ void GRBLMotion::line(float *target, plan_line_data_t *pl_data) {
     // from everywhere in Grbl.
     if (bit_istrue(grbl.settings.flags(), BITFLAG_SOFT_LIMIT_ENABLE)) {
         // NOTE: Block jog state. Jogging is a special case and soft limits are handled independently.
-        if (grbl.sys.state != STATE_JOG) { grbl.limits.soft_check(target); }
+        if (grbl.system.state != STATE_JOG) { grbl.limits.soft_check(target); }
     }
 
     // If in check gcode mode, prevent motion by blocking planner. Soft limits still work.
-    if (grbl.sys.state == STATE_CHECK_MODE) { return; }
+    if (grbl.system.state == STATE_CHECK_MODE) { return; }
 
     // NOTE: Backlash compensation may be installed here. It will need direction info to track when
     // to insert a backlash line motion(s) before the intended line motion and will require its own
@@ -58,7 +58,7 @@ void GRBLMotion::line(float *target, plan_line_data_t *pl_data) {
     // Remain in this loop until there is room in the buffer.
     do {
         GRBLProtocol::execute_realtime(); // Check for any run-time commands
-        if (grbl.sys.abort) { return; } // Bail, if system abort.
+        if (grbl.system.abort) { return; } // Bail, if system abort.
         if (grbl.planner.check_full_buffer()) { GRBLProtocol::auto_cycle_start(); } // Auto-cycle start when buffer is full.
         else { break; }
     } while (1);
@@ -181,7 +181,7 @@ void GRBLMotion::arc(float *target, plan_line_data_t *pl_data, float *position, 
             line(position, pl_data);
 
             // Bail mid-circle on system abort. Runtime command check already performed by mc_line.
-            if (grbl.sys.abort) { return; }
+            if (grbl.system.abort) { return; }
         }
     }
 
@@ -192,7 +192,7 @@ void GRBLMotion::arc(float *target, plan_line_data_t *pl_data, float *position, 
 
 // Execute dwell in seconds.
 void GRBLMotion::dwell(float seconds) {
-    if (grbl.sys.state == STATE_CHECK_MODE) { return; }
+    if (grbl.system.state == STATE_CHECK_MODE) { return; }
     GRBLProtocol::buffer_synchronize();
     delay_sec(seconds, DELAY_MODE_DWELL);
 }
@@ -232,7 +232,7 @@ void GRBLMotion::homing_cycle(uint8_t cycle_mask) {
     }
 
     GRBLProtocol::execute_realtime(); // Check for reset and set system abort.
-    if (grbl.sys.abort) { return; } // Did not complete. Alarm state set by mc_alarm.
+    if (grbl.system.abort) { return; } // Did not complete. Alarm state set by mc_alarm.
 
     // Homing cycle complete! Setup system for normal operation.
     // -------------------------------------------------------------------------------------
@@ -249,16 +249,16 @@ void GRBLMotion::homing_cycle(uint8_t cycle_mask) {
 // NOTE: Upon probe failure, the program will be stopped and placed into ALARM state.
 uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_t parser_flags) {
     // TODO: Need to update this cycle so it obeys a non-auto cycle start.
-    if (grbl.sys.state == STATE_CHECK_MODE) { return(GC_PROBE_CHECK_MODE); }
+    if (grbl.system.state == STATE_CHECK_MODE) { return(GC_PROBE_CHECK_MODE); }
 
     // Finish all queued commands and empty planner buffer before starting probe cycle.
     GRBLProtocol::buffer_synchronize();
-    if (grbl.sys.abort) { return(GC_PROBE_ABORT); } // Return if system reset has been issued.
+    if (grbl.system.abort) { return(GC_PROBE_ABORT); } // Return if system reset has been issued.
 
     // Initialize probing control variables
     uint8_t is_probe_away = bit_istrue(parser_flags, GC_PARSER_PROBE_IS_AWAY);
     uint8_t is_no_error = bit_istrue(parser_flags, GC_PARSER_PROBE_IS_NO_ERROR);
-    grbl.sys.probe_succeeded = false; // Re-initialize probe history before beginning cycle.
+    grbl.system.probe_succeeded = false; // Re-initialize probe history before beginning cycle.
     grbl.probe.configure_invert_mask(is_probe_away);
 
     // After syncing, check if probe is already triggered. If so, halt and issue alarm.
@@ -280,8 +280,8 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     grbl.system.set_exec_state_flag(EXEC_CYCLE_START);
     do {
         GRBLProtocol::execute_realtime();
-        if (grbl.sys.abort) { return(GC_PROBE_ABORT); } // Check for system abort
-    } while (grbl.sys.state != STATE_IDLE);
+        if (grbl.system.abort) { return(GC_PROBE_ABORT); } // Check for system abort
+    } while (grbl.system.state != STATE_IDLE);
 
     // Probing cycle complete!
 
@@ -290,7 +290,7 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
         if (is_no_error) { memcpy(grbl.system.probe_position, grbl.system.position, sizeof(grbl.system.position)); }
         else { grbl.system.set_exec_alarm(EXEC_ALARM_PROBE_FAIL_CONTACT); }
     } else {
-        grbl.sys.probe_succeeded = true; // Indicate to system the probing cycle completed successfully.
+        grbl.system.probe_succeeded = true; // Indicate to system the probing cycle completed successfully.
     }
     grbl.system.probe_state = PROBE_OFF; // Ensure probe state monitor is disabled.
     grbl.probe.configure_invert_mask(false); // Re-initialize invert mask.
@@ -306,31 +306,31 @@ uint8_t GRBLMotion::probe_cycle(float *target, plan_line_data_t *pl_data, uint8_
     GRBLReport::probe_parameters();
     #endif
 
-    if (grbl.sys.probe_succeeded) { return(GC_PROBE_FOUND); } // Successful probe cycle.
+    if (grbl.system.probe_succeeded) { return(GC_PROBE_FOUND); } // Successful probe cycle.
     else { return(GC_PROBE_FAIL_END); } // Failed to trigger probe within travel. With or without error.
 }
 
 #ifdef PARKING_ENABLE
 	void GRBLMotion::parking_motion(float *parking_target, plan_line_data_t *pl_data)
 	{
-		if (grbl.sys.abort) { return; } // Block during abort.
+		if (grbl.system.abort) { return; } // Block during abort.
 
 		uint8_t plan_status = grbl.planner.buffer_line(parking_target, pl_data);
 
 		if (plan_status) {
-			bit_true(grbl.sys.step_control, STEP_CONTROL_EXECUTE_SYS_MOTION);
-			bit_false(grbl.sys.step_control, STEP_CONTROL_END_MOTION); // Allow parking motion to execute, if feed hold is active.
+			bit_true(grbl.system.step_control, STEP_CONTROL_EXECUTE_SYS_MOTION);
+			bit_false(grbl.system.step_control, STEP_CONTROL_END_MOTION); // Allow parking motion to execute, if feed hold is active.
 			grbl.steppers.parking_setup_buffer(); // Setup step segment buffer for special parking motion case
             grbl.steppers.prep_buffer();
             grbl.steppers.wake_up();
 			do {
 				GRBLProtocol::exec_rt_system();
-				if (grbl.sys.abort) { return; }
-			} while (grbl.sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION);
+				if (grbl.system.abort) { return; }
+			} while (grbl.system.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION);
             grbl.steppers.parking_restore_buffer(); // Restore step segment buffer to normal run state.
 		}
 		else {
-			bit_false(grbl.sys.step_control, STEP_CONTROL_EXECUTE_SYS_MOTION);
+			bit_false(grbl.system.step_control, STEP_CONTROL_EXECUTE_SYS_MOTION);
             GRBLProtocol::exec_rt_system();
 		}
 
@@ -343,8 +343,8 @@ void GRBLMotion::override_ctrl_update(uint8_t override_state)
 {
 	// Finish all queued commands before altering override control state
 	GRBLProtocol::buffer_synchronize();
-	if (grbl.sys.abort) { return; }
-	grbl.sys.override_ctrl = override_state;
+	if (grbl.system.abort) { return; }
+	grbl.system.override_ctrl = override_state;
 }
 #endif
 
@@ -366,9 +366,9 @@ void GRBLMotion::reset() {
         // NOTE: If steppers are kept enabled via the step idle delay setting, this also keeps
         // the steppers enabled by avoiding the go_idle call altogether, unless the motion state is
         // violated, by which, all bets are off.
-        if ((grbl.sys.state & (STATE_CYCLE | STATE_HOMING | STATE_JOG)) ||
-            (grbl.sys.step_control & (STEP_CONTROL_EXECUTE_HOLD | STEP_CONTROL_EXECUTE_SYS_MOTION))) {
-            if (grbl.sys.state == STATE_HOMING) {
+        if ((grbl.system.state & (STATE_CYCLE | STATE_HOMING | STATE_JOG)) ||
+            (grbl.system.step_control & (STEP_CONTROL_EXECUTE_HOLD | STEP_CONTROL_EXECUTE_SYS_MOTION))) {
+            if (grbl.system.state == STATE_HOMING) {
                 if (!grbl.system.rt_exec_alarm) { grbl.system.set_exec_alarm(EXEC_ALARM_HOMING_FAIL_RESET); }
             } else {
                 grbl.system.set_exec_alarm(EXEC_ALARM_ABORT_CYCLE);

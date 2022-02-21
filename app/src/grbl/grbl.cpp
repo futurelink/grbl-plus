@@ -35,7 +35,7 @@ GRBLMain::GRBLMain() {
     // Force Grbl into an ALARM state upon a power-cycle or hard reset.
     sys.state = STATE_ALARM;
 #else
-    sys.state = STATE_IDLE;
+    system.state = STATE_IDLE;
 #endif
 
     // Check for power-up and set system alarm if homing is enabled to force homing cycle
@@ -46,7 +46,7 @@ GRBLMain::GRBLMain() {
     // not after disabling the alarm locks. Prevents motion startup blocks from crashing into
     // things uncontrollably. Very bad.
 #ifdef HOMING_INIT_LOCK
-    if (bit_istrue(grbl.settings.flags(), BITFLAG_HOMING_ENABLE)) { sys.state = STATE_ALARM; }
+    if (bit_istrue(grbl.settings.flags(), BITFLAG_HOMING_ENABLE)) { system.state = STATE_ALARM; }
 #endif
 }
 
@@ -54,16 +54,8 @@ GRBLMain::GRBLMain() {
 // For the latter, all processes will return to this loop to be cleanly re-initialized.
 void GRBLMain::run() {
     for (;;) {
-        // Reset system variables.
-        uint8_t prior_state = sys.state;
-        memset(&sys, 0, sizeof(system_t)); // Clear system struct variable.
-        sys.state = prior_state;
-        sys.f_override = DEFAULT_FEED_OVERRIDE;  // Set to 100%
-        sys.r_override = DEFAULT_RAPID_OVERRIDE; // Set to 100%
-        sys.spindle_speed_ovr = DEFAULT_SPINDLE_SPEED_OVERRIDE; // Set to 100%
-
         // Reset Grbl primary systems.
-        system.reset();
+        system.reset(system.state);
         serial.reset_read_buffer(); // Clear serial read buffer
 
         gcode.init(); // Set g-code parser to default state

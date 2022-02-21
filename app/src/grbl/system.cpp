@@ -25,9 +25,33 @@
 void GRBLSystem::init() {
     stm32_system_init();
     memset(position, 0, sizeof(position)); // Clear machine position.
+    state = 0;
 }
 
-void GRBLSystem::reset() {
+void GRBLSystem::reset(uint8_t prior_state) {
+    state = prior_state;
+
+    abort = 0;
+    suspend = 0;
+    soft_limit = 0;
+    step_control = 0;
+    probe_succeeded = 0;
+    homing_axis_lock = 0;
+    spindle_stop_ovr = 0;
+    report_ovr_counter = 0;
+    report_wco_counter = 0;
+    f_override = DEFAULT_FEED_OVERRIDE;  // Set to 100%
+    r_override = DEFAULT_RAPID_OVERRIDE; // Set to 100%
+    spindle_speed_ovr = DEFAULT_SPINDLE_SPEED_OVERRIDE; // Set to 100%
+
+#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
+    override_ctrl = 0;
+#endif
+
+#ifdef VARIABLE_SPINDLE
+    spindle_speed = 0;
+#endif
+
     probe_state = 0;
     rt_exec_state = 0;
     rt_exec_alarm = 0;
@@ -105,7 +129,6 @@ void GRBLSystem::execute_startup(char *line) {
     }
 }
 
-
 // Directs and executes one line of formatted input from protocol_process. While mostly
 // incoming streaming g-code blocks, this also executes Grbl internal commands, such as
 // settings, initiating the homing cycle, and toggling switch states. This differs from
@@ -125,7 +148,7 @@ uint8_t GRBLSystem::execute_line(char *line) {
 
         case 'J' : // Jogging
             // Execute only if in IDLE or JOG states.
-            if (grbl.sys.state != STATE_IDLE && grbl.sys.state != STATE_JOG) { return(STATUS_IDLE_ERROR); }
+            if (grbl.system.state != STATE_IDLE && grbl.system.state != STATE_JOG) { return(STATUS_IDLE_ERROR); }
             if(line[2] != '=') { return(STATUS_INVALID_STATEMENT); }
             return(grbl.gcode.execute_line(line)); // NOTE: $J= is ignored inside g-code parser and used to detect jog motions.
 			break;
@@ -133,7 +156,7 @@ uint8_t GRBLSystem::execute_line(char *line) {
             if ( line[2] != 0 ) { return(STATUS_INVALID_STATEMENT); }
             switch( line[1] ) {
                 case '$' : // Prints Grbl settings
-                    if ( grbl.sys.state & (STATE_CYCLE | STATE_HOLD) ) { return(STATUS_IDLE_ERROR); } // Block during cycle. Takes too long to print.
+                    if ( grbl.system.state & (STATE_CYCLE | STATE_HOLD) ) { return(STATUS_IDLE_ERROR); } // Block during cycle. Takes too long to print.
                     else { GRBLReport::grbl_settings(&grbl.settings); }
                     break;
                 case 'G' : // Prints gcode parser state
@@ -144,17 +167,17 @@ uint8_t GRBLSystem::execute_line(char *line) {
                     // Perform reset when toggling off. Check g-code mode should only work if Grbl
                     // is idle and ready, regardless of alarm locks. This is mainly to keep things
                     // simple and consistent.
-                    if ( grbl.sys.state == STATE_CHECK_MODE ) {
+                    if ( grbl.system.state == STATE_CHECK_MODE ) {
                         grbl.motion.reset();
                         GRBLReport::feedback_message(MESSAGE_DISABLED);
                     } else {
-                        if (grbl.sys.state) { return(STATUS_IDLE_ERROR); } // Requires no alarm mode.
-                        grbl.sys.state = STATE_CHECK_MODE;
+                        if (grbl.system.state) { return(STATUS_IDLE_ERROR); } // Requires no alarm mode.
+                        grbl.system.state = STATE_CHECK_MODE;
                         GRBLReport::feedback_message(MESSAGE_ENABLED);
                     }
                     break;
                 case 'X' : // Disable alarm lock [ALARM]
-                    if (grbl.sys.state == STATE_ALARM) {
+                    if (grbl.system.state == STATE_ALARM) {
 
                         #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
                         // Block if safety door is ajar.
@@ -162,7 +185,7 @@ uint8_t GRBLSystem::execute_line(char *line) {
                         #endif
 
                         GRBLReport::feedback_message(MESSAGE_ALARM_UNLOCK);
-                        grbl.sys.state = STATE_IDLE;
+                        grbl.system.state = STATE_IDLE;
                         // Don't run startup script. Prevents stored moves in startup from causing accidents.
                     } // Otherwise, no effect.
                     break;
@@ -171,7 +194,7 @@ uint8_t GRBLSystem::execute_line(char *line) {
 
         default :
             // Block any system command that requires the state as IDLE/ALARM. (i.e. EEPROM, homing)
-            if ( !(grbl.sys.state == STATE_IDLE || grbl.sys.state == STATE_ALARM) ) { return(STATUS_IDLE_ERROR); }
+            if ( !(grbl.system.state == STATE_IDLE || grbl.system.state == STATE_ALARM) ) { return(STATUS_IDLE_ERROR); }
             switch( line[1] ) {
                 case '#' : // Print Grbl NGC parameters
                     if ( line[2] != 0 ) { return(STATUS_INVALID_STATEMENT); }
@@ -185,7 +208,7 @@ uint8_t GRBLSystem::execute_line(char *line) {
                     if (check_safety_door_ajar()) { return(STATUS_CHECK_DOOR); } // Block if safety door is ajar.
                     #endif
 
-                    grbl.sys.state = STATE_HOMING; // Set system state variable
+                    grbl.system.state = STATE_HOMING; // Set system state variable
                     if (line[2] == 0) {
                         grbl.motion.homing_cycle(HOMING_CYCLE_ALL);
                         #ifdef HOMING_SINGLE_AXIS_COMMANDS
@@ -198,8 +221,8 @@ uint8_t GRBLSystem::execute_line(char *line) {
               }
                         #endif
                     } else { return(STATUS_INVALID_STATEMENT); }
-                    if (!grbl.sys.abort) {  // Execute startup scripts after successful homing.
-                        grbl.sys.state = STATE_IDLE; // Set to IDLE when complete.
+                    if (!grbl.system.abort) {  // Execute startup scripts after successful homing.
+                        grbl.system.state = STATE_IDLE; // Set to IDLE when complete.
                         grbl.steppers.go_idle(); // Set steppers to the settings idle state before returning.
                         if (line[2] == 0) { execute_startup(line); }
                     }
@@ -255,7 +278,7 @@ uint8_t GRBLSystem::execute_line(char *line) {
                         }
                         break;
                     } else { // Store startup line [IDLE Only] Prevents motion during ALARM.
-                        if (grbl.sys.state != STATE_IDLE) { return(STATUS_IDLE_ERROR); } // Store only when idle.
+                        if (grbl.system.state != STATE_IDLE) { return(STATUS_IDLE_ERROR); } // Store only when idle.
                         helper_var = true;  // Set helper_var to flag storing method.
                         // No break. Continues into default: to read remaining command characters.
                     }
@@ -290,7 +313,7 @@ void GRBLSystem::flag_wco_change() {
     #ifdef FORCE_BUFFER_SYNC_DURING_WCO_CHANGE
     GRBLProtocol::buffer_synchronize();
     #endif
-    grbl.sys.report_wco_counter = 0;
+    grbl.system.report_wco_counter = 0;
 }
 
 

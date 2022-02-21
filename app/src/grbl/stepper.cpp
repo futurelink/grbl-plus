@@ -39,7 +39,7 @@
 */
 void GRBLSteppers::prep_buffer() {
     // Block step prep buffer, while in a suspend state and there is no suspend motion to execute.
-    if (bit_istrue(grbl.sys.step_control,STEP_CONTROL_END_MOTION)) { return; }
+    if (bit_istrue(grbl.system.step_control,STEP_CONTROL_END_MOTION)) { return; }
 
     while (segment_buffer_tail != segment_next_head) { // Check if we need to fill the buffer.
 
@@ -47,7 +47,7 @@ void GRBLSteppers::prep_buffer() {
         if (pl_block == nullptr) {
 
             // Query planner for a queued block
-            if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) { pl_block = grbl.planner.get_system_motion_block(); }
+            if (grbl.system.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) { pl_block = grbl.planner.get_system_motion_block(); }
             else { pl_block = grbl.planner.get_current_block(); }
             if (pl_block == nullptr) { return; } // No planner blocks. Exit.
 
@@ -88,7 +88,7 @@ void GRBLSteppers::prep_buffer() {
                 prep.req_mm_increment = REQ_MM_INCREMENT_SCALAR/prep.step_per_mm;
                 prep.dt_remainder = 0.0f; // Reset for new segment block
 
-                if ((grbl.sys.step_control & STEP_CONTROL_EXECUTE_HOLD) || (prep.recalculate_flag & PREP_FLAG_DECEL_OVERRIDE)) {
+                if ((grbl.system.step_control & STEP_CONTROL_EXECUTE_HOLD) || (prep.recalculate_flag & PREP_FLAG_DECEL_OVERRIDE)) {
                     // New block loaded mid-hold. Override planner block entry speed to enforce deceleration.
                     prep.current_speed = prep.exit_speed;
                     pl_block->entry_speed_sqr = prep.exit_speed*prep.exit_speed;
@@ -119,7 +119,7 @@ void GRBLSteppers::prep_buffer() {
             */
             prep.mm_complete = 0.0f; // Default velocity profile complete at 0.0mm from end of block.
             float inv_2_accel = 0.5f/pl_block->acceleration;
-            if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_HOLD) { // [Forced Deceleration to Zero Velocity]
+            if (grbl.system.step_control & STEP_CONTROL_EXECUTE_HOLD) { // [Forced Deceleration to Zero Velocity]
                 // Compute velocity profile parameters for a feed hold in-progress. This profile overrides
                 // the planner block profile, enforcing a deceleration to zero speed.
                 prep.ramp_type = RAMP_DECEL;
@@ -139,7 +139,7 @@ void GRBLSteppers::prep_buffer() {
 
                 float exit_speed_sqr;
                 float nominal_speed;
-                if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) {
+                if (grbl.system.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) {
                     prep.exit_speed = exit_speed_sqr = 0.0f; // Enforce stop at end of system motion.
                 } else {
                     exit_speed_sqr = grbl.planner.get_exec_block_exit_speed_sqr();
@@ -203,7 +203,7 @@ void GRBLSteppers::prep_buffer() {
             }
 
 #ifdef VARIABLE_SPINDLE
-            bit_true(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM); // Force update whenever updating block.
+            bit_true(grbl.system.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM); // Force update whenever updating block.
 #endif
         }
 
@@ -316,7 +316,7 @@ void GRBLSteppers::prep_buffer() {
           Compute spindle speed PWM output for step segment
         */
 
-        if (st_prep_block->is_pwm_rate_adjusted || (grbl.sys.step_control & STEP_CONTROL_UPDATE_SPINDLE_PWM)) {
+        if (st_prep_block->is_pwm_rate_adjusted || (grbl.system.step_control & STEP_CONTROL_UPDATE_SPINDLE_PWM)) {
             if (pl_block->condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)) {
                 float rpm = pl_block->spindle_speed;
                 // NOTE: Feed and rapid overrides are independent of PWM value and do not alter laser power/rate.
@@ -326,10 +326,10 @@ void GRBLSteppers::prep_buffer() {
                 prep.current_spindle_pwm = grbl.spindle.compute_pwm_value(rpm);
             }
             else {
-                grbl.sys.spindle_speed = 0.0;
+                grbl.system.spindle_speed = 0.0;
                 prep.current_spindle_pwm = SPINDLE_PWM_OFF_VALUE;
             }
-            bit_false(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
+            bit_false(grbl.system.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
         }
         prep_segment->spindle_pwm = prep.current_spindle_pwm; // Reload segment PWM value
 
@@ -352,10 +352,10 @@ void GRBLSteppers::prep_buffer() {
 
         // Bail if we are at the end of a feed hold and don't have a step to execute.
         if (prep_segment->n_step == 0) {
-            if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_HOLD) {
+            if (grbl.system.step_control & STEP_CONTROL_EXECUTE_HOLD) {
                 // Less than one step to decelerate to zero speed, but already very close. AMASS
                 // requires full steps to execute. So, just bail.
-                bit_true(grbl.sys.step_control,STEP_CONTROL_END_MOTION);
+                bit_true(grbl.system.step_control,STEP_CONTROL_END_MOTION);
 #ifdef PARKING_ENABLE
                 if (!(prep.recalculate_flag & PREP_FLAG_PARKING)) { prep.recalculate_flag |= PREP_FLAG_HOLD_PARTIAL_BLOCK; }
 #endif
@@ -424,7 +424,7 @@ void GRBLSteppers::prep_buffer() {
                 // Reset prep parameters for resuming and then bail. Allow the stepper ISR to complete
                 // the segment queue, where realtime protocol will set new state upon receiving the
                 // cycle stop flag from the ISR. Prep_segment is blocked until then.
-                bit_true(grbl.sys.step_control,STEP_CONTROL_END_MOTION);
+                bit_true(grbl.system.step_control,STEP_CONTROL_END_MOTION);
 
                 #ifdef PARKING_ENABLE
                 if (!(prep.recalculate_flag & PREP_FLAG_PARKING)) { prep.recalculate_flag |= PREP_FLAG_HOLD_PARTIAL_BLOCK; }
@@ -433,8 +433,8 @@ void GRBLSteppers::prep_buffer() {
                 return; // Bail!
             } else { // End of planner block
                 // The planner block is complete. All steps are set to be executed in the segment buffer.
-                if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) {
-                    bit_true(grbl.sys.step_control,STEP_CONTROL_END_MOTION);
+                if (grbl.system.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) {
+                    bit_true(grbl.system.step_control,STEP_CONTROL_END_MOTION);
                     return;
                 }
                 pl_block = nullptr; // Set pointer to indicate check and load next planner block.
@@ -480,7 +480,7 @@ void GRBLSteppers::go_idle() {
 
     // Set stepper driver idle state, disabled or enabled, depending on settings and circumstances.
     bool pin_state = false; // Keep enabled.
-    if (((grbl.settings.stepper_idle_lock_time() != 0xff) || grbl.system.rt_exec_alarm || grbl.sys.state == STATE_SLEEP) && grbl.sys.state != STATE_HOMING) {
+    if (((grbl.settings.stepper_idle_lock_time() != 0xff) || grbl.system.rt_exec_alarm || grbl.system.state == STATE_SLEEP) && grbl.system.state != STATE_HOMING) {
         // Force stepper dwell to lock axes for a defined amount of time to ensure the axes come to a complete
         // stop and not drift from residual inertial forces at the end of the last movement.
         HAL_Delay(grbl.settings.stepper_idle_lock_time());
@@ -596,7 +596,7 @@ void GRBLSteppers::parking_restore_buffer() {
 // in the segment buffer. It will always be behind by up to the number of segment blocks (-1)
 // divided by the ACCELERATION TICKS PER SECOND in seconds.
 float GRBLSteppers::get_realtime_rate() const {
-    if (grbl.sys.state & (STATE_CYCLE | STATE_HOMING | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
+    if (grbl.system.state & (STATE_CYCLE | STATE_HOMING | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
         return prep.current_speed;
     }
     return 0.0f;
@@ -797,7 +797,7 @@ void GRBLSteppers::pulse_start() {
     }
 
     // During a homing cycle, lock out and prevent desired axes from moving.
-    if (grbl.sys.state == STATE_HOMING) { st.step_outbits &= grbl.sys.homing_axis_lock; }
+    if (grbl.system.state == STATE_HOMING) { st.step_outbits &= grbl.system.homing_axis_lock; }
 
     st.step_count--; // Decrement step events count
     if (st.step_count == 0) {

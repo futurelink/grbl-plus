@@ -79,7 +79,7 @@ void GRBLLimits::external_interrupt_handle() {
     // moves in the planner and serial buffers are all cleared and newly sent blocks will be
     // locked out until a homing cycle or a kill lock command. Allows the user to disable the hard
     // limit setting if their limits are constantly triggering after a reset and move their axes.
-    if (grbl.sys.state != STATE_ALARM) {
+    if (grbl.system.state != STATE_ALARM) {
         if (!(grbl.system.rt_exec_alarm)) {
             #ifdef HARD_LIMIT_FORCE_STATE_CHECK
             // Check limit pin state.
@@ -102,7 +102,7 @@ ISR(LIMIT_INT_vect) { if (!(WDTCSR & (1 << WDIE))) { WDTCSR |= (1 << WDIE); } }
 ISR(WDT_vect) // Watchdog timer ISR
 {
   WDTCSR &= ~(1 << WDIE); // Disable watchdog timer. 
-  if (grbl.sys.state != STATE_ALARM) {  // Ignore if already in alarm state. 
+  if (grbl.system.state != STATE_ALARM) {  // Ignore if already in alarm state.
     if (!(grbl.system.rt_exec_alarm)) {
       // Check limit pin state. 
       if (limits_get_state()) {
@@ -125,7 +125,7 @@ ISR(WDT_vect) // Watchdog timer ISR
 // NOTE: Only the abort realtime command can interrupt this process.
 // TODO: Move limit pin-specific calls to a general function for portability.
 void GRBLLimits::go_home(uint8_t cycle_mask) {
-    if (grbl.sys.abort) { return; } // Block if system reset has been issued.
+    if (grbl.system.abort) { return; } // Block if system reset has been issued.
 
     // Initialize plan data struct for homing motion. Spindle and coolant are disabled.
     plan_line_data_t plan_data;
@@ -202,13 +202,13 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
         }
 
         homing_rate *= sqrtf(n_active_axis); // [sqrt(N_AXIS)] Adjust so individual axes all move at homing rate.
-        grbl.sys.homing_axis_lock = axislock;
+        grbl.system.homing_axis_lock = axislock;
 
         // Perform homing cycle. Planner buffer should be empty, as required to initiate the homing cycle.
         pl_data->feed_rate = homing_rate; // Set current homing rate.
         grbl.planner.buffer_line(target, pl_data); // Bypass mc_line(). Directly plan homing motion.
 
-        grbl.sys.step_control = STEP_CONTROL_EXECUTE_SYS_MOTION; // Set to execute homing motion and clear existing flags.
+        grbl.system.step_control = STEP_CONTROL_EXECUTE_SYS_MOTION; // Set to execute homing motion and clear existing flags.
         grbl.steppers.prep_buffer(); // Prep and fill segment buffer from newly planned block.
         grbl.steppers.wake_up(); // Initiate motion
 
@@ -228,7 +228,7 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
                         }
                     }
                 }
-                grbl.sys.homing_axis_lock = axislock;
+                grbl.system.homing_axis_lock = axislock;
             }
             grbl.steppers.prep_buffer(); // Check and prep segment buffer. NOTE: Should take no longer than 200us.
 
@@ -311,7 +311,7 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
         }
     }
 
-    grbl.sys.step_control = STEP_CONTROL_NORMAL_OP; // Return step control to normal operation.
+    grbl.system.step_control = STEP_CONTROL_NORMAL_OP; // Return step control to normal operation.
 }
 
 
@@ -320,16 +320,16 @@ void GRBLLimits::go_home(uint8_t cycle_mask) {
 // NOTE: Used by jogging to limit travel within soft-limit volume.
 void GRBLLimits::soft_check(float *target) {
     if (grbl.system.check_travel_limits(target)) {
-        grbl.sys.soft_limit = true;
+        grbl.system.soft_limit = true;
         // Force feed hold if cycle is active. All buffered blocks are guaranteed to be within
         // workspace volume so just come to a controlled stop so position is not lost. When complete
         // enter alarm mode.
-        if (grbl.sys.state == STATE_CYCLE) {
+        if (grbl.system.state == STATE_CYCLE) {
             grbl.system.set_exec_state_flag(EXEC_FEED_HOLD);
             do {
                 GRBLProtocol::execute_realtime();
-                if (grbl.sys.abort) { return; }
-            } while (grbl.sys.state != STATE_IDLE);
+                if (grbl.system.abort) { return; }
+            } while (grbl.system.state != STATE_IDLE);
         }
         grbl.motion.reset(); // Issue system reset and ensure spindle and coolant are shutdown.
         grbl.system.set_exec_alarm(EXEC_ALARM_SOFT_LIMIT); // Indicate soft limit critical event

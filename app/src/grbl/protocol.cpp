@@ -30,7 +30,7 @@ void GRBLProtocol::main_loop() {
     #ifdef CHECK_LIMITS_AT_INIT
     if (bit_istrue(grbl.settings.flags(), BITFLAG_HARD_LIMIT_ENABLE)) {
         if (grbl.limits.get_state()) {
-            grbl.sys.state = STATE_ALARM; // Ensure alarm state is active.
+            grbl.system.state = STATE_ALARM; // Ensure alarm state is active.
             GRBLReport::feedback_message(MESSAGE_CHECK_LIMITS);
         }
     }
@@ -39,12 +39,12 @@ void GRBLProtocol::main_loop() {
     // Check for and report alarm state after a reset, error, or an initial power up.
     // NOTE: Sleep mode disables the stepper drivers and position can't be guaranteed.
     // Re-initialize the sleep state as an ALARM mode to ensure user homes or acknowledges.
-    if (grbl.sys.state & (STATE_ALARM | STATE_SLEEP)) {
+    if (grbl.system.state & (STATE_ALARM | STATE_SLEEP)) {
         GRBLReport::feedback_message(MESSAGE_ALARM_LOCK);
-        grbl.sys.state = STATE_ALARM; // Ensure alarm state is set.
+        grbl.system.state = STATE_ALARM; // Ensure alarm state is set.
     } else {
         // Check if the safety door is open.
-        grbl.sys.state = STATE_IDLE;
+        grbl.system.state = STATE_IDLE;
         #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
         if (grbl.system.check_safety_door_ajar()) {
             bit_true(grbl.system.rt_exec_state, EXEC_SAFETY_DOOR);
@@ -71,7 +71,7 @@ void GRBLProtocol::main_loop() {
             if ((c == '\n') || (c == '\r')) { // End of line reached
 
                 execute_realtime(); // Runtime command check point.
-                if (grbl.sys.abort) { return; } // Bail to calling function upon system abort
+                if (grbl.system.abort) { return; } // Bail to calling function upon system abort
 
                 line[char_counter] = 0; // Set string termination character.
 
@@ -91,7 +91,7 @@ void GRBLProtocol::main_loop() {
                 } else if (line[0] == '$') {
                     // Grbl '$' system command
                     GRBLReport::status_message(grbl.system.execute_line(line));
-                } else if (grbl.sys.state & (STATE_ALARM | STATE_JOG)) {
+                } else if (grbl.system.state & (STATE_ALARM | STATE_JOG)) {
                     // Everything else is gcode. Block if in alarm or jog mode.
                     GRBLReport::status_message(STATUS_SYSTEM_GC_LOCK);
                 } else {
@@ -149,7 +149,7 @@ void GRBLProtocol::main_loop() {
         auto_cycle_start();
         execute_realtime();  // Runtime command check point.
 
-        if (grbl.sys.abort) { return; } // Bail to main() program loop to reset system.
+        if (grbl.system.abort) { return; } // Bail to main() program loop to reset system.
     }
 }
 
@@ -161,8 +161,8 @@ void GRBLProtocol::buffer_synchronize() {
     auto_cycle_start();
     do {
         execute_realtime();   // Check and execute run-time commands
-        if (grbl.sys.abort) { return; } // Check for system abort
-    } while (grbl.planner.get_current_block() || (grbl.sys.state == STATE_CYCLE));
+        if (grbl.system.abort) { return; } // Check for system abort
+    } while (grbl.planner.get_current_block() || (grbl.system.state == STATE_CYCLE));
 }
 
 
@@ -192,7 +192,7 @@ void GRBLProtocol::auto_cycle_start() {
 // limit switches, or the main program.
 void GRBLProtocol::execute_realtime() {
     exec_rt_system();
-    if (grbl.sys.suspend) { exec_rt_suspend(); }
+    if (grbl.system.suspend) { exec_rt_suspend(); }
 }
 
 
@@ -206,7 +206,7 @@ void GRBLProtocol::exec_rt_system() {
     // System alarm. Everything has shutdown by something that has gone severely wrong. Report
     // the source of the error to the user. If critical, Grbl disables by entering an infinite
     // loop until system reset/abort.
-    grbl.sys.state = STATE_ALARM; // Set system alarm state
+    grbl.system.state = STATE_ALARM; // Set system alarm state
       GRBLReport::alarm_message(rt_exec);
     // Halt everything upon a critical event flag. Currently hard and soft limits flag this.
     if ((rt_exec == EXEC_ALARM_HARD_LIMIT) || (rt_exec == EXEC_ALARM_SOFT_LIMIT)) {
@@ -228,7 +228,7 @@ void GRBLProtocol::exec_rt_system() {
 
         // Execute system abort.
         if (rt_exec & EXEC_RESET) {
-        grbl.sys.abort = true;  // Only place this is set true.
+        grbl.system.abort = true;  // Only place this is set true.
             return; // Nothing else to do but exit.
         }
 
@@ -243,20 +243,20 @@ void GRBLProtocol::exec_rt_system() {
     if (rt_exec & (EXEC_MOTION_CANCEL | EXEC_FEED_HOLD | EXEC_SAFETY_DOOR | EXEC_SLEEP)) {
 
       // State check for allowable states for hold methods.
-      if (!(grbl.sys.state & (STATE_ALARM | STATE_CHECK_MODE))) {
+      if (!(grbl.system.state & (STATE_ALARM | STATE_CHECK_MODE))) {
       
         // If in CYCLE or JOG states, immediately initiate a motion HOLD.
-        if (grbl.sys.state & (STATE_CYCLE | STATE_JOG)) {
-            if (!(grbl.sys.suspend & (SUSPEND_MOTION_CANCEL | SUSPEND_JOG_CANCEL))) { // Block, if already holding.
+        if (grbl.system.state & (STATE_CYCLE | STATE_JOG)) {
+            if (!(grbl.system.suspend & (SUSPEND_MOTION_CANCEL | SUSPEND_JOG_CANCEL))) { // Block, if already holding.
                 grbl.steppers.update_plan_block_parameters(); // Notify stepper module to recompute for hold deceleration.
-                grbl.sys.step_control = STEP_CONTROL_EXECUTE_HOLD; // Initiate suspend state with active flag.
-                if (grbl.sys.state == STATE_JOG) { // Jog cancelled upon any hold event, except for sleeping.
-                if (!(rt_exec & EXEC_SLEEP)) { grbl.sys.suspend |= SUSPEND_JOG_CANCEL; }
+                grbl.system.step_control = STEP_CONTROL_EXECUTE_HOLD; // Initiate suspend state with active flag.
+                if (grbl.system.state == STATE_JOG) { // Jog cancelled upon any hold event, except for sleeping.
+                if (!(rt_exec & EXEC_SLEEP)) { grbl.system.suspend |= SUSPEND_JOG_CANCEL; }
                 }
             }
         }
         // If IDLE, Grbl is not in motion. Simply indicate suspend state and hold is complete.
-        if (grbl.sys.state == STATE_IDLE) { grbl.sys.suspend = SUSPEND_HOLD_COMPLETE; }
+        if (grbl.system.state == STATE_IDLE) { grbl.system.suspend = SUSPEND_HOLD_COMPLETE; }
 
         // Execute and flag a motion cancel with deceleration and return to idle. Used primarily by probing cycle
         // to halt and cancel the remainder of the motion.
@@ -264,13 +264,13 @@ void GRBLProtocol::exec_rt_system() {
           // MOTION_CANCEL only occurs during a CYCLE, but a HOLD and SAFETY_DOOR may been initiated beforehand
           // to hold the CYCLE. Motion cancel is valid for a single planner block motion only, while jog cancel
           // will handle and clear multiple planner block motions.
-          if (!(grbl.sys.state & STATE_JOG)) { grbl.sys.suspend |= SUSPEND_MOTION_CANCEL; } // NOTE: State is STATE_CYCLE.
+          if (!(grbl.system.state & STATE_JOG)) { grbl.system.suspend |= SUSPEND_MOTION_CANCEL; } // NOTE: State is STATE_CYCLE.
         }
 
         // Execute a feed hold with deceleration, if required. Then, suspend system.
         if (rt_exec & EXEC_FEED_HOLD) {
           // Block SAFETY_DOOR, JOG, and SLEEP states from changing to HOLD state.
-          if (!(grbl.sys.state & (STATE_SAFETY_DOOR | STATE_JOG | STATE_SLEEP))) { grbl.sys.state = STATE_HOLD; }
+          if (!(grbl.system.state & (STATE_SAFETY_DOOR | STATE_JOG | STATE_SLEEP))) { grbl.system.state = STATE_HOLD; }
         }
 
         // Execute a safety door stop with a feed hold and disable spindle/coolant.
@@ -279,35 +279,35 @@ void GRBLProtocol::exec_rt_system() {
         if (rt_exec & EXEC_SAFETY_DOOR) {
             GRBLReport::feedback_message(MESSAGE_SAFETY_DOOR_AJAR);
           // If jogging, block safety door methods until jog cancel is complete. Just flag that it happened.
-          if (!(grbl.sys.suspend & SUSPEND_JOG_CANCEL)) {
+          if (!(grbl.system.suspend & SUSPEND_JOG_CANCEL)) {
             // Check if the safety re-opened during a restore parking motion only. Ignore if
             // already retracting, parked or in sleep state.
-            if (grbl.sys.state == STATE_SAFETY_DOOR) {
-              if (grbl.sys.suspend & SUSPEND_INITIATE_RESTORE) { // Actively restoring
+            if (grbl.system.state == STATE_SAFETY_DOOR) {
+              if (grbl.system.suspend & SUSPEND_INITIATE_RESTORE) { // Actively restoring
                 #ifdef PARKING_ENABLE
                   // Set hold and reset appropriate control flags to restart parking sequence.
-                  if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) {
+                  if (grbl.system.step_control & STEP_CONTROL_EXECUTE_SYS_MOTION) {
                     st_update_plan_block_parameters(); // Notify stepper module to recompute for hold deceleration.
-                    grbl.sys.step_control = (STEP_CONTROL_EXECUTE_HOLD | STEP_CONTROL_EXECUTE_SYS_MOTION);
-                    grbl.sys.suspend &= ~(SUSPEND_HOLD_COMPLETE);
+                    grbl.system.step_control = (STEP_CONTROL_EXECUTE_HOLD | STEP_CONTROL_EXECUTE_SYS_MOTION);
+                    grbl.system.suspend &= ~(SUSPEND_HOLD_COMPLETE);
                   } // else NO_MOTION is active.
                 #endif
-                  grbl.sys.suspend &= ~(SUSPEND_RETRACT_COMPLETE | SUSPEND_INITIATE_RESTORE | SUSPEND_RESTORE_COMPLETE);
-                  grbl.sys.suspend |= SUSPEND_RESTART_RETRACT;
+                  grbl.system.suspend &= ~(SUSPEND_RETRACT_COMPLETE | SUSPEND_INITIATE_RESTORE | SUSPEND_RESTORE_COMPLETE);
+                  grbl.system.suspend |= SUSPEND_RESTART_RETRACT;
               }
             }
-            if (grbl.sys.state != STATE_SLEEP) { grbl.sys.state = STATE_SAFETY_DOOR; }
+            if (grbl.system.state != STATE_SLEEP) { grbl.system.state = STATE_SAFETY_DOOR; }
           }
-          // NOTE: This flag doesn't change when the door closes, unlike grbl.sys.state. Ensures any parking motions
+          // NOTE: This flag doesn't change when the door closes, unlike grbl.system.state. Ensures any parking motions
           // are executed if the door switch closes and the state returns to HOLD.
-            grbl.sys.suspend |= SUSPEND_SAFETY_DOOR_AJAR;
+            grbl.system.suspend |= SUSPEND_SAFETY_DOOR_AJAR;
         }
         
       }
 
       if (rt_exec & EXEC_SLEEP) {
-        if (grbl.sys.state == STATE_ALARM) { grbl.sys.suspend |= (SUSPEND_RETRACT_COMPLETE|SUSPEND_HOLD_COMPLETE); }
-          grbl.sys.state = STATE_SLEEP;
+        if (grbl.system.state == STATE_ALARM) { grbl.system.suspend |= (SUSPEND_RETRACT_COMPLETE|SUSPEND_HOLD_COMPLETE); }
+          grbl.system.state = STATE_SLEEP;
       }
 
         grbl.system.clear_exec_state_flag((EXEC_MOTION_CANCEL | EXEC_FEED_HOLD | EXEC_SAFETY_DOOR | EXEC_SLEEP));
@@ -319,33 +319,33 @@ void GRBLProtocol::exec_rt_system() {
       // Ensures auto-cycle-start doesn't resume a hold without an explicit user-input.
       if (!(rt_exec & (EXEC_FEED_HOLD | EXEC_MOTION_CANCEL | EXEC_SAFETY_DOOR))) {
         // Resume door state when parking motion has retracted and door has been closed.
-        if ((grbl.sys.state == STATE_SAFETY_DOOR) && !(grbl.sys.suspend & SUSPEND_SAFETY_DOOR_AJAR)) {
-          if (grbl.sys.suspend & SUSPEND_RESTORE_COMPLETE) {
-              grbl.sys.state = STATE_IDLE; // Set to IDLE to immediately resume the cycle.
-          } else if (grbl.sys.suspend & SUSPEND_RETRACT_COMPLETE) {
+        if ((grbl.system.state == STATE_SAFETY_DOOR) && !(grbl.system.suspend & SUSPEND_SAFETY_DOOR_AJAR)) {
+          if (grbl.system.suspend & SUSPEND_RESTORE_COMPLETE) {
+              grbl.system.state = STATE_IDLE; // Set to IDLE to immediately resume the cycle.
+          } else if (grbl.system.suspend & SUSPEND_RETRACT_COMPLETE) {
             // Flag to re-energize powered components and restore original position, if disabled by SAFETY_DOOR.
             // NOTE: For a safety door to resume, the switch must be closed, as indicated by HOLD state, and
             // the retraction execution is complete, which implies the initial feed hold is not active. To
             // restore normal operation, the restore procedures must be initiated by the following flag. Once,
             // they are complete, it will call CYCLE_START automatically to resume and exit the suspend.
-              grbl.sys.suspend |= SUSPEND_INITIATE_RESTORE;
+              grbl.system.suspend |= SUSPEND_INITIATE_RESTORE;
           }
         }
         // Cycle start only when IDLE or when a hold is complete and ready to resume.
-        if ((grbl.sys.state == STATE_IDLE) || ((grbl.sys.state & STATE_HOLD) && (grbl.sys.suspend & SUSPEND_HOLD_COMPLETE))) {
-          if (grbl.sys.state == STATE_HOLD && grbl.sys.spindle_stop_ovr) {
-              grbl.sys.spindle_stop_ovr |= SPINDLE_STOP_OVR_RESTORE_CYCLE; // Set to restore in suspend routine and cycle start after.
+        if ((grbl.system.state == STATE_IDLE) || ((grbl.system.state & STATE_HOLD) && (grbl.system.suspend & SUSPEND_HOLD_COMPLETE))) {
+          if (grbl.system.state == STATE_HOLD && grbl.system.spindle_stop_ovr) {
+              grbl.system.spindle_stop_ovr |= SPINDLE_STOP_OVR_RESTORE_CYCLE; // Set to restore in suspend routine and cycle start after.
           } else {
             // Start cycle only if queued motions exist in planner buffer and the motion is not canceled.
-              grbl.sys.step_control = STEP_CONTROL_NORMAL_OP; // Restore step control to normal operation
-            if (grbl.planner.get_current_block() && bit_isfalse(grbl.sys.suspend,SUSPEND_MOTION_CANCEL)) {
-                grbl.sys.suspend = SUSPEND_DISABLE; // Break suspend state.
-                grbl.sys.state = STATE_CYCLE;
+              grbl.system.step_control = STEP_CONTROL_NORMAL_OP; // Restore step control to normal operation
+            if (grbl.planner.get_current_block() && bit_isfalse(grbl.system.suspend,SUSPEND_MOTION_CANCEL)) {
+                grbl.system.suspend = SUSPEND_DISABLE; // Break suspend state.
+                grbl.system.state = STATE_CYCLE;
                 grbl.steppers.prep_buffer(); // Initialize step segment buffer before beginning cycle.
                 grbl.steppers.wake_up();
             } else { // Otherwise, do nothing. Set and resume IDLE state.
-                grbl.sys.suspend = SUSPEND_DISABLE; // Break suspend state.
-                grbl.sys.state = STATE_IDLE;
+                grbl.system.suspend = SUSPEND_DISABLE; // Break suspend state.
+                grbl.system.state = STATE_IDLE;
             }
           }
         }
@@ -359,29 +359,29 @@ void GRBLProtocol::exec_rt_system() {
       // NOTE: Bresenham algorithm variables are still maintained through both the planner and stepper
       // cycle reinitializations. The stepper path should continue exactly as if nothing has happened.
       // NOTE: EXEC_CYCLE_STOP is set by the stepper subsystem when a cycle or feed hold completes.
-      if ((grbl.sys.state & (STATE_HOLD|STATE_SAFETY_DOOR|STATE_SLEEP)) && !(grbl.sys.soft_limit) && !(grbl.sys.suspend & SUSPEND_JOG_CANCEL)) {
+      if ((grbl.system.state & (STATE_HOLD|STATE_SAFETY_DOOR|STATE_SLEEP)) && !(grbl.system.soft_limit) && !(grbl.system.suspend & SUSPEND_JOG_CANCEL)) {
         // Hold complete. Set to indicate ready to resume.  Remain in HOLD or DOOR states until user
         // has issued a resume command or reset.
         grbl.planner.cycle_reinitialize();
-        if (grbl.sys.step_control & STEP_CONTROL_EXECUTE_HOLD) { grbl.sys.suspend |= SUSPEND_HOLD_COMPLETE; }
-        bit_false(grbl.sys.step_control,(STEP_CONTROL_EXECUTE_HOLD | STEP_CONTROL_EXECUTE_SYS_MOTION));
+        if (grbl.system.step_control & STEP_CONTROL_EXECUTE_HOLD) { grbl.system.suspend |= SUSPEND_HOLD_COMPLETE; }
+        bit_false(grbl.system.step_control,(STEP_CONTROL_EXECUTE_HOLD | STEP_CONTROL_EXECUTE_SYS_MOTION));
       } else {
         // Motion complete. Includes CYCLE/JOG/HOMING states and jog cancel/motion cancel/soft limit events.
         // NOTE: Motion and jog cancel both immediately return to idle after the hold completes.
-        if (grbl.sys.suspend & SUSPEND_JOG_CANCEL) {   // For jog cancel, flush buffers and sync positions.
-            grbl.sys.step_control = STEP_CONTROL_NORMAL_OP;
+        if (grbl.system.suspend & SUSPEND_JOG_CANCEL) {   // For jog cancel, flush buffers and sync positions.
+            grbl.system.step_control = STEP_CONTROL_NORMAL_OP;
             grbl.planner.reset();
             grbl.steppers.reset();
             grbl.gcode.sync_position();
             grbl.planner.sync_position();
         }
-        if (grbl.sys.suspend & SUSPEND_SAFETY_DOOR_AJAR) { // Only occurs when safety door opens during jog.
-            grbl.sys.suspend &= ~(SUSPEND_JOG_CANCEL);
-            grbl.sys.suspend |= SUSPEND_HOLD_COMPLETE;
-            grbl.sys.state = STATE_SAFETY_DOOR;
+        if (grbl.system.suspend & SUSPEND_SAFETY_DOOR_AJAR) { // Only occurs when safety door opens during jog.
+            grbl.system.suspend &= ~(SUSPEND_JOG_CANCEL);
+            grbl.system.suspend |= SUSPEND_HOLD_COMPLETE;
+            grbl.system.state = STATE_SAFETY_DOOR;
         } else {
-            grbl.sys.suspend = SUSPEND_DISABLE;
-            grbl.sys.state = STATE_IDLE;
+            grbl.system.suspend = SUSPEND_DISABLE;
+            grbl.system.state = STATE_IDLE;
         }
       }
         grbl.system.clear_exec_state_flag(EXEC_CYCLE_STOP);
@@ -393,7 +393,7 @@ void GRBLProtocol::exec_rt_system() {
   if (rt_exec) {
       grbl.system.clear_exec_motion_overrides(); // Clear all motion override flags.
 
-    uint8_t new_f_override =  grbl.sys.f_override;
+    uint8_t new_f_override =  grbl.system.f_override;
     if (rt_exec & EXEC_FEED_OVR_RESET) { new_f_override = DEFAULT_FEED_OVERRIDE; }
     if (rt_exec & EXEC_FEED_OVR_COARSE_PLUS) { new_f_override += FEED_OVERRIDE_COARSE_INCREMENT; }
     if (rt_exec & EXEC_FEED_OVR_COARSE_MINUS) { new_f_override -= FEED_OVERRIDE_COARSE_INCREMENT; }
@@ -402,15 +402,15 @@ void GRBLProtocol::exec_rt_system() {
     new_f_override = min(new_f_override,MAX_FEED_RATE_OVERRIDE);
     new_f_override = max(new_f_override,MIN_FEED_RATE_OVERRIDE);
 
-    uint8_t new_r_override = grbl.sys.r_override;
+    uint8_t new_r_override = grbl.system.r_override;
     if (rt_exec & EXEC_RAPID_OVR_RESET) { new_r_override = DEFAULT_RAPID_OVERRIDE; }
     if (rt_exec & EXEC_RAPID_OVR_MEDIUM) { new_r_override = RAPID_OVERRIDE_MEDIUM; }
     if (rt_exec & EXEC_RAPID_OVR_LOW) { new_r_override = RAPID_OVERRIDE_LOW; }
 
-    if ((new_f_override != grbl.sys.f_override) || (new_r_override != grbl.sys.r_override)) {
-        grbl.sys.f_override = new_f_override;
-        grbl.sys.r_override = new_r_override;
-        grbl.sys.report_ovr_counter = 0; // Set to report change immediately
+    if ((new_f_override != grbl.system.f_override) || (new_r_override != grbl.system.r_override)) {
+        grbl.system.f_override = new_f_override;
+        grbl.system.r_override = new_r_override;
+        grbl.system.report_ovr_counter = 0; // Set to report change immediately
         grbl.planner.update_velocity_profile_parameters();
         grbl.planner.cycle_reinitialize();
     }
@@ -421,7 +421,7 @@ void GRBLProtocol::exec_rt_system() {
       grbl.system.clear_exec_accessory_overrides(); // Clear all accessory override flags.
 
     // NOTE: Unlike motion overrides, spindle overrides do not require a planner reinitialization.
-    uint8_t last_s_override =  grbl.sys.spindle_speed_ovr;
+    uint8_t last_s_override =  grbl.system.spindle_speed_ovr;
     if (rt_exec & EXEC_SPINDLE_OVR_RESET) { last_s_override = DEFAULT_SPINDLE_SPEED_OVERRIDE; }
     if (rt_exec & EXEC_SPINDLE_OVR_COARSE_PLUS) { last_s_override += SPINDLE_OVERRIDE_COARSE_INCREMENT; }
     if (rt_exec & EXEC_SPINDLE_OVR_COARSE_MINUS) { last_s_override -= SPINDLE_OVERRIDE_COARSE_INCREMENT; }
@@ -430,25 +430,25 @@ void GRBLProtocol::exec_rt_system() {
     last_s_override = min(last_s_override,MAX_SPINDLE_SPEED_OVERRIDE);
     last_s_override = max(last_s_override,MIN_SPINDLE_SPEED_OVERRIDE);
 
-    if (last_s_override != grbl.sys.spindle_speed_ovr) {
-      bit_true(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
-        grbl.sys.spindle_speed_ovr = last_s_override;
-        grbl.sys.report_ovr_counter = 0; // Set to report change immediately
+    if (last_s_override != grbl.system.spindle_speed_ovr) {
+      bit_true(grbl.system.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
+        grbl.system.spindle_speed_ovr = last_s_override;
+        grbl.system.report_ovr_counter = 0; // Set to report change immediately
     }
 
     if (rt_exec & EXEC_SPINDLE_OVR_STOP) {
       // Spindle stop override allowed only while in HOLD state.
       // NOTE: Report counters are set in spindle_set_state() when spindle stop is executed.
-      if (grbl.sys.state == STATE_HOLD) {
-        if (!(grbl.sys.spindle_stop_ovr)) { grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_INITIATE; }
-        else if (grbl.sys.spindle_stop_ovr & SPINDLE_STOP_OVR_ENABLED) { grbl.sys.spindle_stop_ovr |= SPINDLE_STOP_OVR_RESTORE; }
+      if (grbl.system.state == STATE_HOLD) {
+        if (!(grbl.system.spindle_stop_ovr)) { grbl.system.spindle_stop_ovr = SPINDLE_STOP_OVR_INITIATE; }
+        else if (grbl.system.spindle_stop_ovr & SPINDLE_STOP_OVR_ENABLED) { grbl.system.spindle_stop_ovr |= SPINDLE_STOP_OVR_RESTORE; }
       }
     }
 
     // NOTE: Since coolant state always performs a planner sync whenever it changes, the current
     // run state can be determined by checking the parser state.
     if (rt_exec & (EXEC_COOLANT_FLOOD_OVR_TOGGLE | EXEC_COOLANT_MIST_OVR_TOGGLE)) {
-      if ((grbl.sys.state == STATE_IDLE) || (grbl.sys.state & (STATE_CYCLE | STATE_HOLD))) {
+      if ((grbl.system.state == STATE_IDLE) || (grbl.system.state & (STATE_CYCLE | STATE_HOLD))) {
         uint8_t coolant_state = grbl.gcode.state.modal.coolant;
         #ifdef ENABLE_M7
           if (rt_exec & EXEC_COOLANT_MIST_OVR_TOGGLE) {
@@ -477,7 +477,7 @@ void GRBLProtocol::exec_rt_system() {
   #endif
 
   // Reload step segment buffer
-  if (grbl.sys.state & (STATE_CYCLE | STATE_HOLD | STATE_SAFETY_DOOR | STATE_HOMING | STATE_SLEEP| STATE_JOG)) {
+  if (grbl.system.state & (STATE_CYCLE | STATE_HOLD | STATE_SAFETY_DOOR | STATE_HOMING | STATE_SLEEP| STATE_JOG)) {
       grbl.steppers.prep_buffer();
   }
 
@@ -525,21 +525,21 @@ void GRBLProtocol::exec_rt_suspend() {
     else { restore_condition = block->condition; }
     #endif
 
-    while (grbl.sys.suspend) {
+    while (grbl.system.suspend) {
 
-        if (grbl.sys.abort) { return; }
+        if (grbl.system.abort) { return; }
 
         // Block until initial hold is complete and the machine has stopped motion.
-        if (grbl.sys.suspend & SUSPEND_HOLD_COMPLETE) {
+        if (grbl.system.suspend & SUSPEND_HOLD_COMPLETE) {
 
             // Parking manager. Handles de/re-energizing, switch state checks, and parking motions for
             // the safety door and sleep states.
-            if (grbl.sys.state & (STATE_SAFETY_DOOR | STATE_SLEEP)) {
+            if (grbl.system.state & (STATE_SAFETY_DOOR | STATE_SLEEP)) {
 
                 // Handles retraction motions and de-energizing.
-                if (bit_isfalse(grbl.sys.suspend,SUSPEND_RETRACT_COMPLETE)) {
+                if (bit_isfalse(grbl.system.suspend,SUSPEND_RETRACT_COMPLETE)) {
                     // Ensure any prior spindle stop override is disabled at start of safety door routine.
-                    grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_DISABLED;
+                    grbl.system.spindle_stop_ovr = SPINDLE_STOP_OVR_DISABLED;
 
                     #ifndef PARKING_ENABLE
                     grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
@@ -547,7 +547,7 @@ void GRBLProtocol::exec_rt_suspend() {
                     #else
                     // Get current position and store restore location and spindle retract waypoint.
                     system_convert_array_steps_to_mpos(parking_target,system.position);
-                    if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
+                    if (bit_isfalse(grbl.system.suspend,SUSPEND_RESTART_RETRACT)) {
                         memcpy(restore_target,parking_target,sizeof(parking_target));
                         retract_waypoint += restore_target[PARKING_AXIS];
                         retract_waypoint = min(retract_waypoint,PARKING_TARGET);
@@ -560,7 +560,7 @@ void GRBLProtocol::exec_rt_suspend() {
 					if ((bit_istrue(settings.flags, BITFLAG_HOMING_ENABLE)) &&
 													(parking_target[PARKING_AXIS] < PARKING_TARGET) &&
 													bit_isfalse(settings.flags, BITFLAG_LASER_MODE) &&
-													(grbl.sys.override_ctrl == OVERRIDE_PARKING_MOTION)) {
+													(grbl.system.override_ctrl == OVERRIDE_PARKING_MOTION)) {
 					#else
 					if ((bit_istrue(settings.flags, BITFLAG_HOMING_ENABLE)) &&
 													(parking_target[PARKING_AXIS] < PARKING_TARGET) &&
@@ -598,36 +598,36 @@ void GRBLProtocol::exec_rt_suspend() {
                     }
                     #endif
 
-                    grbl.sys.suspend &= ~(SUSPEND_RESTART_RETRACT);
-                    grbl.sys.suspend |= SUSPEND_RETRACT_COMPLETE;
+                    grbl.system.suspend &= ~(SUSPEND_RESTART_RETRACT);
+                    grbl.system.suspend |= SUSPEND_RETRACT_COMPLETE;
                 } else {
-                    if (grbl.sys.state == STATE_SLEEP) {
+                    if (grbl.system.state == STATE_SLEEP) {
                         GRBLReport::feedback_message(MESSAGE_SLEEP_MODE);
                         // Spindle and coolant should already be stopped, but do it again just to be sure.
                         grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
                         grbl.coolant.set_state(COOLANT_DISABLE); // De-energize
                         grbl.steppers.go_idle(); // Disable steppers
-                        while (!(grbl.sys.abort)) { exec_rt_system(); } // Do nothing until reset.
+                        while (!(grbl.system.abort)) { exec_rt_system(); } // Do nothing until reset.
                         return; // Abort received. Return to re-initialize.
                     }
 
                     // Allows resuming from parking/safety door. Actively checks if safety door is closed and ready to resume.
                     #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
-                    if (grbl.sys.state == STATE_SAFETY_DOOR) {
+                    if (grbl.system.state == STATE_SAFETY_DOOR) {
                         if (!(grbl.system.check_safety_door_ajar())) {
-                            grbl.sys.suspend &= ~(SUSPEND_SAFETY_DOOR_AJAR); // Reset door ajar flag to denote ready to resume.
+                            grbl.system.suspend &= ~(SUSPEND_SAFETY_DOOR_AJAR); // Reset door ajar flag to denote ready to resume.
                         }
                     }
                     #endif
 
                     // Handles parking restore and safety door resume.
-                    if (grbl.sys.suspend & SUSPEND_INITIATE_RESTORE) {
+                    if (grbl.system.suspend & SUSPEND_INITIATE_RESTORE) {
                         #ifdef PARKING_ENABLE
                         // Execute fast restore motion to the pull-out position. Parking requires homing enabled.
                         // NOTE: State is will remain DOOR, until the de-energizing and retract is complete.
 						#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
 						if (((settings.flags & (BITFLAG_HOMING_ENABLE | BITFLAG_LASER_MODE)) == BITFLAG_HOMING_ENABLE) &&
-                            (grbl.sys.override_ctrl == OVERRIDE_PARKING_MOTION)) {
+                            (grbl.system.override_ctrl == OVERRIDE_PARKING_MOTION)) {
 						#else
 						if ((settings.flags & (BITFLAG_HOMING_ENABLE | BITFLAG_LASER_MODE)) == BITFLAG_HOMING_ENABLE) {
 						#endif
@@ -643,10 +643,10 @@ void GRBLProtocol::exec_rt_suspend() {
                         // Delayed Tasks: Restart spindle and coolant, delay to power-up, then resume cycle.
                         if (grbl.gcode.state.modal.spindle != SPINDLE_DISABLE) {
                             // Block if safety door re-opened during prior restore actions.
-                            if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
+                            if (bit_isfalse(grbl.system.suspend,SUSPEND_RESTART_RETRACT)) {
                                 if (bit_istrue(grbl.settings.flags(),BITFLAG_LASER_MODE)) {
                                     // When in laser mode, ignore spindle spin-up delay. Set to turn on laser when cycle starts.
-                                    bit_true(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
+                                    bit_true(grbl.system.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
                                 } else {
                                     grbl.spindle.set_state((restore_condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)), restore_spindle_speed);
                                     delay_sec(SAFETY_DOOR_SPINDLE_DELAY, DELAY_MODE_SYS_SUSPEND);
@@ -656,7 +656,7 @@ void GRBLProtocol::exec_rt_suspend() {
 
                         if (grbl.gcode.state.modal.coolant != COOLANT_DISABLE) {
                             // Block if safety door re-opened during prior restore actions.
-                            if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
+                            if (bit_isfalse(grbl.system.suspend,SUSPEND_RESTART_RETRACT)) {
                                 // NOTE: Laser mode will honor this delay. An exhaust system is often controlled by this pin.
                                 grbl.coolant.set_state((restore_condition & (PL_COND_FLAG_COOLANT_FLOOD | PL_COND_FLAG_COOLANT_FLOOD)));
                                 delay_sec(SAFETY_DOOR_COOLANT_DELAY, DELAY_MODE_SYS_SUSPEND);
@@ -667,13 +667,13 @@ void GRBLProtocol::exec_rt_suspend() {
                         // Execute slow plunge motion from pull-out position to resume position.
 						#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
 						if (((settings.flags & (BITFLAG_HOMING_ENABLE | BITFLAG_LASER_MODE)) == BITFLAG_HOMING_ENABLE) &&
-							(grbl.sys.override_ctrl == OVERRIDE_PARKING_MOTION)) {
+							(grbl.system.override_ctrl == OVERRIDE_PARKING_MOTION)) {
 							#else
 							if ((grbl.settings.flags() & (BITFLAG_HOMING_ENABLE | BITFLAG_LASER_MODE)) == BITFLAG_HOMING_ENABLE) {
 							#endif
 
                             // Block if safety door re-opened during prior restore actions.
-                            if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
+                            if (bit_isfalse(grbl.system.suspend,SUSPEND_RESTART_RETRACT)) {
                                 // Regardless if the retract parking motion was a valid/safe motion or not, the
                                 // restore parking motion should logically be valid, either by returning to the
                                 // original position through valid machine space or by not moving at all.
@@ -685,8 +685,8 @@ void GRBLProtocol::exec_rt_suspend() {
                         }
                         #endif
 
-                        if (bit_isfalse(grbl.sys.suspend,SUSPEND_RESTART_RETRACT)) {
-                            grbl.sys.suspend |= SUSPEND_RESTORE_COMPLETE;
+                        if (bit_isfalse(grbl.system.suspend,SUSPEND_RESTART_RETRACT)) {
+                            grbl.system.suspend |= SUSPEND_RESTORE_COMPLETE;
                             grbl.system.set_exec_state_flag(EXEC_CYCLE_START); // Set to resume program.
                         }
                     }
@@ -694,37 +694,37 @@ void GRBLProtocol::exec_rt_suspend() {
             } else {
                 // Feed hold manager. Controls spindle stop override states.
                 // NOTE: Hold ensured as completed by condition check at the beginning of suspend routine.
-                if (grbl.sys.spindle_stop_ovr) {
+                if (grbl.system.spindle_stop_ovr) {
                     // Handles beginning of spindle stop
-                    if (grbl.sys.spindle_stop_ovr & SPINDLE_STOP_OVR_INITIATE) {
+                    if (grbl.system.spindle_stop_ovr & SPINDLE_STOP_OVR_INITIATE) {
                         if (grbl.gcode.state.modal.spindle != SPINDLE_DISABLE) {
                             grbl.spindle.set_state(SPINDLE_DISABLE,0.0f); // De-energize
-                            grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_ENABLED; // Set stop override state to enabled, if de-energized.
+                            grbl.system.spindle_stop_ovr = SPINDLE_STOP_OVR_ENABLED; // Set stop override state to enabled, if de-energized.
                         } else {
-                            grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_DISABLED; // Clear stop override state
+                            grbl.system.spindle_stop_ovr = SPINDLE_STOP_OVR_DISABLED; // Clear stop override state
                         }
                     // Handles restoring of spindle state
-                    } else if (grbl.sys.spindle_stop_ovr & (SPINDLE_STOP_OVR_RESTORE | SPINDLE_STOP_OVR_RESTORE_CYCLE)) {
+                    } else if (grbl.system.spindle_stop_ovr & (SPINDLE_STOP_OVR_RESTORE | SPINDLE_STOP_OVR_RESTORE_CYCLE)) {
                         if (grbl.gcode.state.modal.spindle != SPINDLE_DISABLE) {
                             GRBLReport::feedback_message(MESSAGE_SPINDLE_RESTORE);
                             if (bit_istrue(grbl.settings.flags(), BITFLAG_LASER_MODE)) {
                                 // When in laser mode, ignore spindle spin-up delay. Set to turn on laser when cycle starts.
-                                bit_true(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
+                                bit_true(grbl.system.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
                             } else {
                                 grbl.spindle.set_state((restore_condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)), restore_spindle_speed);
                             }
                         }
-                        if (grbl.sys.spindle_stop_ovr & SPINDLE_STOP_OVR_RESTORE_CYCLE) {
+                        if (grbl.system.spindle_stop_ovr & SPINDLE_STOP_OVR_RESTORE_CYCLE) {
                             grbl.system.set_exec_state_flag(EXEC_CYCLE_START);  // Set to resume program.
                         }
-                        grbl.sys.spindle_stop_ovr = SPINDLE_STOP_OVR_DISABLED; // Clear stop override state
+                        grbl.system.spindle_stop_ovr = SPINDLE_STOP_OVR_DISABLED; // Clear stop override state
                     }
                 } else {
                     // Handles spindle state during hold. NOTE: Spindle speed overrides may be altered during hold state.
                     // NOTE: STEP_CONTROL_UPDATE_SPINDLE_PWM is automatically reset upon resume in step generator.
-                    if (bit_istrue(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM)) {
+                    if (bit_istrue(grbl.system.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM)) {
                         grbl.spindle.set_state((restore_condition & (PL_COND_FLAG_SPINDLE_CW | PL_COND_FLAG_SPINDLE_CCW)), restore_spindle_speed);
-                        bit_false(grbl.sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
+                        bit_false(grbl.system.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
                     }
                 }
             }

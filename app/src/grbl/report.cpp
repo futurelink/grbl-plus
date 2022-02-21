@@ -227,7 +227,7 @@ void GRBLReport::probe_parameters() {
     grbl.system.convert_array_steps_to_mpos(print_position,grbl.system.probe_position);
     report_util_axis_values(print_position);
     grbl.serial.write(':');
-    print_uint8_base10(grbl.sys.probe_succeeded);
+    print_uint8_base10(grbl.system.probe_succeeded);
     report_util_feedback_line_feed();
 }
 
@@ -318,7 +318,7 @@ void GRBLReport::gcode_modes() {
     #endif
 
 	#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
-		if (grbl.sys.override_ctrl == OVERRIDE_PARKING_MOTION) {
+		if (grbl.system.override_ctrl == OVERRIDE_PARKING_MOTION) {
 			report_util_gcode_modes_M();
 			print_uint8_base10(56);
 		}
@@ -451,13 +451,13 @@ void GRBLReport::realtime_status() {
 
     // Report current machine state and sub-states
     grbl.serial.write('<');
-    switch (grbl.sys.state) {
+    switch (grbl.system.state) {
         case STATE_IDLE: printPgmString(PSTR("Idle")); break;
         case STATE_CYCLE: printPgmString(PSTR("Run")); break;
         case STATE_HOLD:
-            if (!(grbl.sys.suspend & SUSPEND_JOG_CANCEL)) {
+            if (!(grbl.system.suspend & SUSPEND_JOG_CANCEL)) {
                 printPgmString(PSTR("Hold:"));
-                if (grbl.sys.suspend & SUSPEND_HOLD_COMPLETE) { grbl.serial.write('0'); } // Ready to resume
+                if (grbl.system.suspend & SUSPEND_HOLD_COMPLETE) { grbl.serial.write('0'); } // Ready to resume
                 else { grbl.serial.write('1'); } // Actively holding
                 break;
             } // Continues to print jog state during jog cancel.
@@ -467,11 +467,11 @@ void GRBLReport::realtime_status() {
         case STATE_CHECK_MODE: printPgmString(PSTR("Check")); break;
         case STATE_SAFETY_DOOR:
             printPgmString(PSTR("Door:"));
-            if (grbl.sys.suspend & SUSPEND_INITIATE_RESTORE) {
+            if (grbl.system.suspend & SUSPEND_INITIATE_RESTORE) {
                 grbl.serial.write('3'); // Restoring
             } else {
-                if (grbl.sys.suspend & SUSPEND_RETRACT_COMPLETE) {
-                    if (grbl.sys.suspend & SUSPEND_SAFETY_DOOR_AJAR) {
+                if (grbl.system.suspend & SUSPEND_RETRACT_COMPLETE) {
+                    if (grbl.system.suspend & SUSPEND_SAFETY_DOOR_AJAR) {
                         grbl.serial.write('1'); // Door ajar
                     } else {
                         grbl.serial.write('0');
@@ -485,7 +485,7 @@ void GRBLReport::realtime_status() {
     }
 
     float wco[N_AXIS];
-    if (bit_isfalse(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE) || (grbl.sys.report_wco_counter == 0)) {
+    if (bit_isfalse(grbl.settings.status_report_mask(), BITFLAG_RT_STATUS_POSITION_TYPE) || (grbl.system.report_wco_counter == 0)) {
         for (idx = 0; idx< N_AXIS; idx++) {
             // Apply work coordinate offsets and tool length offset to current position.
             wco[idx] = grbl.gcode.state.coord_system[idx] + grbl.gcode.state.coord_offset[idx];
@@ -534,7 +534,7 @@ void GRBLReport::realtime_status() {
     printPgmString(PSTR("|FS:"));
     printFloat_RateValue(grbl.steppers.get_realtime_rate());
     grbl.serial.write(',');
-    printFloat(grbl.sys.spindle_speed, N_DECIMAL_RPMVALUE);
+    printFloat(grbl.system.spindle_speed, N_DECIMAL_RPMVALUE);
     #else
     printPgmString(PSTR("|F:"));
     printFloat_RateValue(st_get_realtime_rate());
@@ -565,31 +565,31 @@ void GRBLReport::realtime_status() {
     #endif
 
     #ifdef REPORT_FIELD_WORK_COORD_OFFSET
-    if (grbl.sys.report_wco_counter > 0) { grbl.sys.report_wco_counter--; }
+    if (grbl.system.report_wco_counter > 0) { grbl.system.report_wco_counter--; }
     else {
-        if (grbl.sys.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
-            grbl.sys.report_wco_counter = (REPORT_WCO_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
+        if (grbl.system.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
+            grbl.system.report_wco_counter = (REPORT_WCO_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
         }
-        else { grbl.sys.report_wco_counter = (REPORT_WCO_REFRESH_IDLE_COUNT - 1); }
-        if (grbl.sys.report_ovr_counter == 0) { grbl.sys.report_ovr_counter = 1; } // Set override on next report.
+        else { grbl.system.report_wco_counter = (REPORT_WCO_REFRESH_IDLE_COUNT - 1); }
+        if (grbl.system.report_ovr_counter == 0) { grbl.system.report_ovr_counter = 1; } // Set override on next report.
         printPgmString(PSTR("|WCO:"));
         report_util_axis_values(wco);
     }
     #endif
 
     #ifdef REPORT_FIELD_OVERRIDES
-    if (grbl.sys.report_ovr_counter > 0) { grbl.sys.report_ovr_counter--; }
+    if (grbl.system.report_ovr_counter > 0) { grbl.system.report_ovr_counter--; }
     else {
-        if (grbl.sys.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
-            grbl.sys.report_ovr_counter = (REPORT_OVR_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
+        if (grbl.system.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
+            grbl.system.report_ovr_counter = (REPORT_OVR_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
         }
-        else { grbl.sys.report_ovr_counter = (REPORT_OVR_REFRESH_IDLE_COUNT - 1); }
+        else { grbl.system.report_ovr_counter = (REPORT_OVR_REFRESH_IDLE_COUNT - 1); }
         printPgmString(PSTR("|Ov:"));
-        print_uint8_base10(grbl.sys.f_override);
+        print_uint8_base10(grbl.system.f_override);
         grbl.serial.write(',');
-        print_uint8_base10(grbl.sys.r_override);
+        print_uint8_base10(grbl.system.r_override);
         grbl.serial.write(',');
-        print_uint8_base10(grbl.sys.spindle_speed_ovr);
+        print_uint8_base10(grbl.system.spindle_speed_ovr);
 
         uint8_t sp_state = grbl.spindle.get_state();
         uint8_t cl_state = grbl.coolant.get_state();

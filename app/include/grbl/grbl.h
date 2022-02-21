@@ -71,9 +71,6 @@ public:
     GRBLLimits limits;
     GRBLProtocol protocol;
 
-    // Declare system global variable structure
-    system_t sys;
-
     GRBLMain();
     void run();
 };

@@ -1081,7 +1081,7 @@ uint8_t GRBLCode::execute_line(char *line)
   if (state.modal.program_flow) {
       GRBLProtocol::buffer_synchronize(); // Sync and finish all remaining buffered motions before moving on.
     if (state.modal.program_flow == PROGRAM_FLOW_PAUSED) {
-      if (grbl.sys.state != STATE_CHECK_MODE) {
+      if (grbl.system.state != STATE_CHECK_MODE) {
           grbl.system.set_exec_state_flag(EXEC_FEED_HOLD); // Use feed hold for program pause.
           GRBLProtocol::execute_realtime(); // Execute suspend.
       }
@@ -1107,13 +1107,13 @@ uint8_t GRBLCode::execute_line(char *line)
 			#endif
 
       #ifdef RESTORE_OVERRIDES_AFTER_PROGRAM_END
-        grbl.sys.f_override = DEFAULT_FEED_OVERRIDE;
-        grbl.sys.r_override = DEFAULT_RAPID_OVERRIDE;
-        grbl.sys.spindle_speed_ovr = DEFAULT_SPINDLE_SPEED_OVERRIDE;
+        grbl.system.f_override = DEFAULT_FEED_OVERRIDE;
+        grbl.system.r_override = DEFAULT_RAPID_OVERRIDE;
+        grbl.system.spindle_speed_ovr = DEFAULT_SPINDLE_SPEED_OVERRIDE;
       #endif
 
         // Execute coordinate change and spindle/coolant stop.
-        if (grbl.sys.state != STATE_CHECK_MODE) {
+        if (grbl.system.state != STATE_CHECK_MODE) {
             if (!(GRBLSettings::read_coord_data(state.modal.coord_select,state.coord_system))) { FAIL(STATUS_SETTING_READ_FAIL); }
             grbl.system.flag_wco_change(); // Set to refresh immediately just in case something altered.
             grbl.spindle.set_state(SPINDLE_DISABLE,0.0f);

@@ -30,29 +30,6 @@
 extern "C" {
 #endif
 
-// Define global system variables
-typedef struct {
-    uint8_t state;               // Tracks the current system state of Grbl.
-    uint8_t abort;               // System abort flag. Forces exit back to main loop for reset.
-    uint8_t suspend;             // System suspend bitflag variable that manages holds, cancels, and safety door.
-    uint8_t soft_limit;          // Tracks soft limit errors for the state machine. (boolean)
-    uint8_t step_control;        // Governs the step segment generator depending on system state.
-    uint8_t probe_succeeded;     // Tracks if last probing cycle was successful.
-    uint8_t homing_axis_lock;    // Locks axes when limits engage. Used as an axis motion mask in the stepper ISR.
-    uint8_t f_override;          // Feed rate override value in percent
-    uint8_t r_override;          // Rapids override value in percent
-    uint8_t spindle_speed_ovr;   // Spindle speed value in percent
-    uint8_t spindle_stop_ovr;    // Tracks spindle stop override states
-    uint8_t report_ovr_counter;  // Tracks when to add override data to status reports.
-    uint8_t report_wco_counter;  // Tracks when to add work coordinate offset data to status reports.
-#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
-    uint8_t override_ctrl;     // Tracks override control states.
-#endif
-#ifdef VARIABLE_SPINDLE
-    float spindle_speed;
-#endif
-} system_t;
-
 // Define system executor bit map. Used internally by realtime protocol as realtime command flags,
 // which notifies the main program to execute the specified realtime command asynchronously.
 // NOTE: The system executor uses an unsigned 8-bit volatile variable (8 flag limit.) The default
@@ -161,6 +138,28 @@ typedef struct {
 
 class GRBLSystem {
 public:
+    // Global variables
+    uint8_t state;               // Tracks the current system state of Grbl.
+    uint8_t abort;               // System abort flag. Forces exit back to main loop for reset.
+    uint8_t suspend;             // System suspend bitflag variable that manages holds, cancels, and safety door.
+    uint8_t soft_limit;          // Tracks soft limit errors for the state machine. (boolean)
+    uint8_t step_control;        // Governs the step segment generator depending on system state.
+    uint8_t probe_succeeded;     // Tracks if last probing cycle was successful.
+    uint8_t homing_axis_lock;    // Locks axes when limits engage. Used as an axis motion mask in the stepper ISR.
+    uint8_t f_override;          // Feed rate override value in percent
+    uint8_t r_override;          // Rapids override value in percent
+    uint8_t spindle_speed_ovr;   // Spindle speed value in percent
+    uint8_t spindle_stop_ovr;    // Tracks spindle stop override states
+    uint8_t report_ovr_counter;  // Tracks when to add override data to status reports.
+    uint8_t report_wco_counter;  // Tracks when to add work coordinate offset data to status reports.
+#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
+    uint8_t override_ctrl;     // Tracks override control states.
+#endif
+#ifdef VARIABLE_SPINDLE
+    float spindle_speed;
+#endif
+
+    // Current machine state
     int32_t position[N_AXIS];      // Real-time machine (aka home) position vector in steps.
     int32_t probe_position[N_AXIS]; // Last probe position in machine coordinates and steps.
 
@@ -178,7 +177,7 @@ public:
     void init();
 
     // Resets machine state
-    void reset();
+    void reset(uint8_t prior_state);
 
     // Returns bitfield of control pin states, organized by CONTROL_PIN_INDEX. (1=triggered, 0=not triggered).
     uint8_t control_get_state();

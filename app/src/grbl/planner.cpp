@@ -228,9 +228,9 @@ uint8_t GRBLPlanner::check_full_buffer() const {
 // NOTE: All system motion commands, such as homing/parking, are not subject to overrides.
 float GRBLPlanner::compute_profile_nominal_speed(plan_block_t *block) {
   float nominal_speed = block->programmed_rate;
-  if (block->condition & PL_COND_FLAG_RAPID_MOTION) { nominal_speed *= (0.01f * grbl.sys.r_override); }
+  if (block->condition & PL_COND_FLAG_RAPID_MOTION) { nominal_speed *= (0.01f * grbl.system.r_override); }
   else {
-    if (!(block->condition & PL_COND_FLAG_NO_FEED_OVERRIDE)) { nominal_speed *= (0.01f * grbl.sys.f_override); }
+    if (!(block->condition & PL_COND_FLAG_NO_FEED_OVERRIDE)) { nominal_speed *= (0.01f * grbl.system.f_override); }
     if (nominal_speed > block->rapid_rate) { nominal_speed = block->rapid_rate; }
   }
   if (nominal_speed > MINIMUM_FEED_RATE) { return(nominal_speed); }

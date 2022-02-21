@@ -119,7 +119,7 @@ void GRBLSpindle::set_speed(uint16_t pwm_value) {
 	uint16_t spindle_compute_pwm_value(float rpm) // 328p PWM register is 8-bit.
 	{
 		uint16_t pwm_value;
-		rpm *= (0.010*grbl.sys.spindle_speed_ovr); // Scale by spindle speed override value.
+		rpm *= (0.010*grbl.system.spindle_speed_ovr); // Scale by spindle speed override value.
 																					// Calculate PWM register value based on rpm max/min settings and programmed rpm.
 		if ((settings.rpm_min >= settings.rpm_max) || (rpm >= RPM_MAX)) {
 			rpm = RPM_MAX;
@@ -158,31 +158,31 @@ void GRBLSpindle::set_speed(uint16_t pwm_value) {
 						pwm_value = floorf(RPM_LINE_A1*rpm - RPM_LINE_B1);
 					}
 		}
-		grbl.sys.spindle_speed = rpm;
+		grbl.system.spindle_speed = rpm;
 		return(pwm_value);
 	}
 #else
 // Called by spindle_set_state() and step segment generator. Keep routine small and efficient.
 uint16_t GRBLSpindle::compute_pwm_value(float rpm) { // 328p PWM register is 8-bit.
     uint16_t pwm_value;
-    rpm *= (0.010f * grbl.sys.spindle_speed_ovr); // Scale by spindle speed override value.
+    rpm *= (0.010f * grbl.system.spindle_speed_ovr); // Scale by spindle speed override value.
 																					 // Calculate PWM register value based on rpm max/min settings and programmed rpm.
     if ((grbl.settings.rpm_min() >= grbl.settings.rpm_max()) || (rpm >= grbl.settings.rpm_max())) {
 		// No PWM range possible. Set simple on/off spindle control pin state.
-        grbl.sys.spindle_speed = grbl.settings.rpm_max();
+        grbl.system.spindle_speed = grbl.settings.rpm_max();
 		pwm_value = SPINDLE_PWM_MAX_VALUE;
 	} else if (rpm <= grbl.settings.rpm_min()) {
 		if (rpm == 0.0f) { // S0 disables spindle
-            grbl.sys.spindle_speed = 0.0f;
+            grbl.system.spindle_speed = 0.0f;
 			pwm_value = SPINDLE_PWM_OFF_VALUE;
 		} else { // Set minimum PWM output
-            grbl.sys.spindle_speed = grbl.settings.rpm_min();
+            grbl.system.spindle_speed = grbl.settings.rpm_min();
 			pwm_value = SPINDLE_PWM_MIN_VALUE;
 		}
 	} else {
 		// Compute intermediate PWM value with linear spindle speed model.
 		// NOTE: A nonlinear model could be installed here, if required, but keep it VERY light-weight.
-        grbl.sys.spindle_speed = rpm;
+        grbl.system.spindle_speed = rpm;
 		pwm_value = (uint16_t)floorf((rpm - grbl.settings.rpm_min())*pwm_gradient) + SPINDLE_PWM_MIN_VALUE;
 	}
 	return(pwm_value);
@@ -201,11 +201,11 @@ uint16_t GRBLSpindle::compute_pwm_value(float rpm) { // 328p PWM register is 8-b
   void GRBLSpindle::_spindle_set_state(uint8_t state)
 #endif
 {
-  if (grbl.sys.abort) { return; } // Block during abort.
+  if (grbl.system.abort) { return; } // Block during abort.
   if (state == SPINDLE_DISABLE) { // Halt or set spindle direction and rpm.
   
     #ifdef VARIABLE_SPINDLE
-      grbl.sys.spindle_speed = 0.0f;
+      grbl.system.spindle_speed = 0.0f;
     #endif
     stop();
   
@@ -237,7 +237,7 @@ uint16_t GRBLSpindle::compute_pwm_value(float rpm) { // 328p PWM register is 8-b
     #endif
   }
 
-    grbl.sys.report_ovr_counter = 0; // Set to report change immediately
+    grbl.system.report_ovr_counter = 0; // Set to report change immediately
 }
 
 
@@ -245,13 +245,13 @@ uint16_t GRBLSpindle::compute_pwm_value(float rpm) { // 328p PWM register is 8-b
 // if an abort or check-mode is active.
 #ifdef VARIABLE_SPINDLE
 void GRBLSpindle::sync(uint8_t state, float rpm) {
-    if (grbl.sys.state == STATE_CHECK_MODE) { return; }
+    if (grbl.system.state == STATE_CHECK_MODE) { return; }
     GRBLProtocol::buffer_synchronize(); // Empty planner buffer to ensure spindle is set when programmed.
     set_state(state,rpm);
 }
 #else
 void _spindle_sync(uint8_t state) {
-    if (grbl.sys.state == STATE_CHECK_MODE) { return; }
+    if (grbl.system.state == STATE_CHECK_MODE) { return; }
     protocol_buffer_synchronize(); // Empty planner buffer to ensure spindle is set when programmed.
     _spindle_set_state(state);
 }

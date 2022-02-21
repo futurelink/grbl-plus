@@ -37,9 +37,9 @@ uint8_t jog_execute(plan_line_data_t *pl_data, parser_block_t *gc_block) {
 
     // Valid jog command. Plan, set state, and execute.
     grbl.motion.line(gc_block->values.xyz, pl_data);
-    if (grbl.sys.state == STATE_IDLE) {
+    if (grbl.system.state == STATE_IDLE) {
         if (grbl.planner.get_current_block() != nullptr) { // Check if there is a block to execute.
-            grbl.sys.state = STATE_JOG;
+            grbl.system.state = STATE_JOG;
             grbl.steppers.prep_buffer();
             grbl.steppers.wake_up();  // NOTE: Manual start. No state machine required.
         }

@@ -118,7 +118,7 @@ void OnUsbDataRx(uint8_t* dataIn, uint8_t length) {
                 switch(data) {
                 case CMD_SAFETY_DOOR:   grbl.system.set_exec_state_flag(EXEC_SAFETY_DOOR); break; // Set as true
                 case CMD_JOG_CANCEL:
-                    if (grbl.sys.state & STATE_JOG) { // Block all other states from invoking motion cancel.
+                    if (grbl.system.state & STATE_JOG) { // Block all other states from invoking motion cancel.
                         grbl.system.set_exec_state_flag(EXEC_MOTION_CANCEL);
                     }
                     break;

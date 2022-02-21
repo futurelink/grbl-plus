@@ -59,7 +59,7 @@ void GRBLCoolant::stop() {
 // Called by coolant toggle override, parking restore, parking retract, sleep mode, g-code
 // parser program end, and g-code parser coolant_sync().
 void GRBLCoolant::set_state(uint8_t mode) {
-    if (grbl.sys.abort) { return; } // Block during abort.
+    if (grbl.system.abort) { return; } // Block during abort.
   
     if (mode == COOLANT_DISABLE) {
         stop();
@@ -74,14 +74,14 @@ void GRBLCoolant::set_state(uint8_t mode) {
         }
         #endif
     }
-    grbl.sys.report_ovr_counter = 0; // Set to report change immediately
+    grbl.system.report_ovr_counter = 0; // Set to report change immediately
 }
 
 
 // G-code parser entry-point for setting coolant state. Forces a planner buffer sync and bails 
 // if an abort or check-mode is active.
 void GRBLCoolant::sync(uint8_t mode) {
-    if (grbl.sys.state == STATE_CHECK_MODE) { return; }
+    if (grbl.system.state == STATE_CHECK_MODE) { return; }
     GRBLProtocol::buffer_synchronize(); // Ensure coolant turns on when specified in program.
     set_state(mode);
 }
