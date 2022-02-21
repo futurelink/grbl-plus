@@ -21,7 +21,7 @@
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "grbl.h"
+#include "grbl/grbl.h"
 
 // Returns the index of the next block in the ring buffer. Also called by stepper segment buffer.
 uint8_t GRBLPlanner::next_block_index(uint8_t block_index)

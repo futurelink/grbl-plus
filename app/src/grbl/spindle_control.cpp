@@ -20,7 +20,7 @@
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "grbl.h"
+#include "grbl/grbl.h"
 
 void GRBLSpindle::init() {
     #ifdef VARIABLE_SPINDLE

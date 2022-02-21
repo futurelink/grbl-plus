@@ -26,7 +26,7 @@
   methods to accomodate their needs.
 */
 
-#include "grbl.h"
+#include "grbl/grbl.h"
 
 // Internal report utilities to reduce flash with repetitive tasks turned into functions.
 void report_util_setting_prefix(uint8_t n) { grbl.serial.write('$'); print_uint8_base10(n); grbl.serial.write('='); }

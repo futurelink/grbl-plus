@@ -18,7 +18,7 @@
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "grbl.h"
+#include "grbl/grbl.h"
 #include "stm32/stm32_helpers.h"
 
 // Probe pin initialization routine.

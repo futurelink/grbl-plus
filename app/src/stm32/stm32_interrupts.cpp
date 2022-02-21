@@ -20,7 +20,7 @@
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "../grbl/grbl.h"
+#include "grbl/grbl.h"
 #include "stm32f1xx_hal.h"
 #include "stm32/stm32f1xx_it.h"
 

@@ -20,7 +20,7 @@
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "../grbl/grbl.h"
+#include "grbl/grbl.h"
 
 #include "stm32/stm32_helpers.h"
 #include "stm32/usb/usb_device.h"

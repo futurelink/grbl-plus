@@ -3,6 +3,7 @@
   Part of Grbl
 
   Copyright (c) 2015-2016 Sungeun K. Jeon for Gnea Research LLC
+  Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -21,10 +22,10 @@
 #ifndef grbl_h
 #define grbl_h
 
-#include <cstdint>
-#include <cmath>
-#include <cstring>
-#include <cstdlib>
+#include "../../../../../Program Files (x86)/GNU Arm Embedded Toolchain/10 2021.10/arm-none-eabi/include/c++/10.3.1/cstdint"
+#include "../../../../../Program Files (x86)/GNU Arm Embedded Toolchain/10 2021.10/arm-none-eabi/include/c++/10.3.1/cmath"
+#include "../../../../../Program Files (x86)/GNU Arm Embedded Toolchain/10 2021.10/arm-none-eabi/include/c++/10.3.1/cstring"
+#include "../../../../../Program Files (x86)/GNU Arm Embedded Toolchain/10 2021.10/arm-none-eabi/include/c++/10.3.1/cstdlib"
 
 // Define the Grbl system include files. NOTE: Do not alter organization.
 #include "config.h"

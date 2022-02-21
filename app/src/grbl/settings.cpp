@@ -19,7 +19,7 @@
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "grbl.h"
+#include "grbl/grbl.h"
 
 // Method to store startup lines into EEPROM
 void GRBLSettings::store_startup_line(uint8_t n, char *line) {

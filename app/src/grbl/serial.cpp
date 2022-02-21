@@ -20,7 +20,7 @@
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "grbl.h"
+#include "grbl/grbl.h"
 
 #include "core_cm3.h"
 #include "stm32/usb/usbd_cdc_if.h"

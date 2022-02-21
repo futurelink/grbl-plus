@@ -4,6 +4,7 @@
 
   Copyright (c) 2011-2016 Sungeun K. Jeon for Gnea Research LLC
   Copyright (c) 2009-2011 Simen Svale Skogsrud
+  Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -22,7 +23,7 @@
 #ifndef stepper_h
 #define stepper_h
 
-#include "stm32/stm32_helpers.h"
+#include "../stm32/stm32_helpers.h"
 
 #ifndef SEGMENT_BUFFER_SIZE
 #define SEGMENT_BUFFER_SIZE 10

@@ -4,6 +4,7 @@
 
   Copyright (c) 2011-2016 Sungeun K. Jeon for Gnea Research LLC
   Copyright (c) 2009-2011 Simen Svale Skogsrud
+  Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -22,8 +23,8 @@
 #ifndef nuts_bolts_h
 #define nuts_bolts_h
 
-#include "stm32f1xx_hal_rcc.h"
-#include "float.h"
+#include "../../../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h"
+#include "../../../../../Program Files (x86)/GNU Arm Embedded Toolchain/10 2021.10/lib/gcc/arm-none-eabi/10.3.1/include/float.h"
 
 #ifdef __cplusplus
 extern "C" {
