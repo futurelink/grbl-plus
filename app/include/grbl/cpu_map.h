@@ -3,6 +3,7 @@
   Part of Grbl
 
   Copyright (c) 2012-2016 Sungeun K. Jeon for Gnea Research LLC
+  Copyright (c) 2022 Denis Pavlov
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -51,20 +52,16 @@
 
   // Define homing/hard limit switch input pins and limit interrupt vectors. 
   // NOTE: All limit bit pins must be on the same port
-#define LIMIT_PIN        GPIOB
 #define LIMIT_PORT       GPIOB
-#define GPIO_LIMIT_PORT  GPIO_PortSourceGPIOB
-#define X_LIMIT_BIT      10  
+#define X_LIMIT_BIT      10
 #define Y_LIMIT_BIT      11  
-#define Z_LIMIT_BIT      12  
-
-#define LIMIT_MASK       ((1<<X_LIMIT_BIT)|(1<<Y_LIMIT_BIT)|(1<<Z_LIMIT_BIT)) // All limit bits
+#define Z_LIMIT_BIT      12
+#define LIMIT_MASK       ((1 << X_LIMIT_BIT) | (1 << Y_LIMIT_BIT) | (1 << Z_LIMIT_BIT)) // All limit bits
 
   // Define spindle enable and spindle direction output pins.
 #define SPINDLE_ENABLE_PORT   GPIOB
 #define SPINDLE_ENABLE_BIT    13  //
 #ifndef USE_SPINDLE_DIR_AS_ENABLE_PIN
-#define SPINDLE_DIRECTION_DDR   GPIOB
 #define SPINDLE_DIRECTION_PORT  GPIOB
 #define SPINDLE_DIRECTION_BIT   14  // 
 #endif
@@ -85,8 +82,7 @@
   // NOTE: All CONTROLs pins must be on the same port and not on a port with other input pins (limits).
 #define CONTROL_PIN_PORT              GPIOB
 #define CONTROL_PORT                  GPIOB
-#define GPIO_CONTROL_PORT             GPIO_PortSourceGPIOB
-#define CONTROL_RESET_BIT             5  
+#define CONTROL_RESET_BIT             5
 #define CONTROL_FEED_HOLD_BIT         6  
 #define CONTROL_CYCLE_START_BIT       7  
 #define CONTROL_SAFETY_DOOR_BIT       8  
@@ -102,7 +98,6 @@
 
   // NOTE: On the 328p, these must be the same as the SPINDLE_ENABLE settings.
 #define SPINDLE_PWM_FREQUENCY       10000                   // KHz
-#define SPINDLE_PWM_DDR	            GPIOA
 #define SPINDLE_PWM_PORT            GPIOA
 #define SPINDLE_PWM_BIT	            8    
 #endif // End of VARIABLE_SPINDLE
@@ -127,8 +122,8 @@
   //   10                                           X_LIMIT_BIT
   //   11                                           Y_LIMIT_BIT
   //   12                                           Z_LIMIT_BIT
-  //   13 14 SWD									SPINDLE_ENABLE_BIT
-  //   14											SPINDLE_DIRECTION_BIT
+  //   13     SWD									SPINDLE_ENABLE_BIT
+  //   14	  SWD   								SPINDLE_DIRECTION_BIT
   //   15     PROBE_BIT					
 
 #endif

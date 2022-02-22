@@ -1,2 +1,5 @@
 cmake-build-debug
 .idea
+hardware/*.bin
+hardware/stm32-grbl-backups
+/hardware/#auto_saved_files#
