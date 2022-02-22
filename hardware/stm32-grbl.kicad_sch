@@ -3733,7 +3733,7 @@
   (symbol (lib_id "Connector:Conn_01x04_Male") (at 268.605 40.64 180) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid 1d49ec3c-eadf-4c77-9805-dec4ebef2ac1)
-    (property "Reference" "J?" (id 0) (at 269.24 38.735 0)
+    (property "Reference" "J22" (id 0) (at 269.24 38.735 0)
       (effects (font (size 1.27 1.27)) (justify right))
     )
     (property "Value" "X_STEPPER" (id 1) (at 269.3162 41.2366 0)
@@ -4144,7 +4144,7 @@
   (symbol (lib_id "Connector:Conn_01x04_Male") (at 268.605 88.9 180) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid 4422ef2a-acc8-4f1b-b12e-c5a5d2593172)
-    (property "Reference" "J?" (id 0) (at 269.24 86.36 0)
+    (property "Reference" "J23" (id 0) (at 269.24 86.36 0)
       (effects (font (size 1.27 1.27)) (justify right))
     )
     (property "Value" "Y_STEPPER" (id 1) (at 269.3162 89.4966 0)
@@ -5572,7 +5572,7 @@
   (symbol (lib_id "Connector:Conn_01x04_Male") (at 268.605 137.16 180) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid aea05e1d-c8e5-4863-ad26-f0b961a8d385)
-    (property "Reference" "J?" (id 0) (at 269.24 134.62 0)
+    (property "Reference" "J24" (id 0) (at 269.24 134.62 0)
       (effects (font (size 1.27 1.27)) (justify right))
     )
     (property "Value" "Z_STEPPER" (id 1) (at 269.3162 137.7566 0)
@@ -6885,13 +6885,13 @@
       (reference "J21") (unit 1) (value "POWER") (footprint "TerminalBlock:TerminalBlock_bornier-2_P5.08mm")
     )
     (path "/1d49ec3c-eadf-4c77-9805-dec4ebef2ac1"
-      (reference "J?") (unit 1) (value "X_STEPPER") (footprint "Connector_JST:JST_EH_B4B-EH-A_1x04_P2.50mm_Vertical")
+      (reference "J22") (unit 1) (value "X_STEPPER") (footprint "Connector_JST:JST_EH_B4B-EH-A_1x04_P2.50mm_Vertical")
     )
     (path "/4422ef2a-acc8-4f1b-b12e-c5a5d2593172"
-      (reference "J?") (unit 1) (value "Y_STEPPER") (footprint "Connector_JST:JST_EH_B4B-EH-A_1x04_P2.50mm_Vertical")
+      (reference "J23") (unit 1) (value "Y_STEPPER") (footprint "Connector_JST:JST_EH_B4B-EH-A_1x04_P2.50mm_Vertical")
     )
     (path "/aea05e1d-c8e5-4863-ad26-f0b961a8d385"
-      (reference "J?") (unit 1) (value "Z_STEPPER") (footprint "Connector_JST:JST_EH_B4B-EH-A_1x04_P2.50mm_Vertical")
+      (reference "J24") (unit 1) (value "Z_STEPPER") (footprint "Connector_JST:JST_EH_B4B-EH-A_1x04_P2.50mm_Vertical")
     )
     (path "/9c6beff8-c008-47d9-9802-e5b7a3a7e8cb"
       (reference "JP1") (unit 1) (value "LIGHT_POWER") (footprint "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
